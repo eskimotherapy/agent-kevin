@@ -3,7 +3,7 @@
  * SessionEnd / PreCompact hook — extracts transcript turns and appends to
  * today's session log under `<HOME>/knowledge/raw/sessions/YYYY-MM-DD.md`.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { FOLDERS, isInitialized } from '../mcp-server/src/config';
@@ -24,6 +24,29 @@ const MODES: Record<string, Mode> = {
 interface HookInput {
   session_id?: string;
   transcript_path?: string;
+  cwd?: string;
+}
+
+/** True when this process is Claude Code's plugin hook invocation. */
+function isPluginInvocation(): boolean {
+  return Boolean(process.env.CLAUDE_PLUGIN_ROOT);
+}
+
+/** True when the project at `cwd` enables an `agent-kevin@*` plugin. */
+function pluginEnabledInCwd(cwd: string): boolean {
+  if (!cwd) return false;
+  const settingsPath = resolve(cwd, '.claude/settings.json');
+  if (!existsSync(settingsPath)) return false;
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      enabledPlugins?: Record<string, boolean>;
+    };
+    return Object.entries(settings.enabledPlugins ?? {}).some(
+      ([key, enabled]) => enabled === true && key.startsWith('agent-kevin@'),
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function readStdin(): Promise<string> {
@@ -56,6 +79,11 @@ async function capture(name: string, mode: Mode): Promise<void> {
   const hookInput = parseHookInput(await readStdin());
   const sessionId = hookInput.session_id ?? 'unknown';
   const transcriptPath = hookInput.transcript_path ?? '';
+
+  if (!isPluginInvocation() && pluginEnabledInCwd(hookInput.cwd ?? '')) {
+    process.stderr.write(`[session-capture] SKIP — plugin hook will capture\n`);
+    return;
+  }
 
   if (!transcriptPath || !existsSync(transcriptPath)) {
     process.stderr.write(`[session-capture] SKIP — no transcript at ${transcriptPath}\n`);
