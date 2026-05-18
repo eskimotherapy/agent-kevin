@@ -13,12 +13,7 @@
  * gets diverted to a disk file the model can't consume.
  */
 
-/**
- * Match the start of a session-capture entry. Used both for finding the
- * first entry (so we can pull out the file-level header) and for splitting
- * the body into entry-aligned chunks.
- */
-const ENTRY_HEADER_RE = /^### (?:Session|Pre-Compact) \(/m;
+import { ENTRY_HEADER_RE, ENTRY_SPLIT_RE } from './session-format';
 
 /** Split an entry into single-turn pieces at `\n\n**User:**` / `\n\n**Assistant:**` boundaries. */
 const splitTurns = (entry: string): string[] => {
@@ -82,8 +77,7 @@ export function chunkSessionLog(content: string, targetBytes: number): string[] 
   const fileHeader = content.slice(0, firstIdx).trimEnd();
   const body = content.slice(firstIdx);
 
-  // Lookahead split keeps the entry header at the start of each piece.
-  const entries = body.split(/(?=^### (?:Session|Pre-Compact) \()/m).filter((e) => e.length > 0);
+  const entries = body.split(ENTRY_SPLIT_RE).filter((e) => e.length > 0);
 
   // Expand oversized entries into multiple sub-entries split on turn boundaries.
   const sized = entries.flatMap((entry) => splitOversizedEntry(entry, targetBytes));

@@ -14,6 +14,11 @@ import { CONTEXT, FOLDERS, TIMEZONE } from '@/config';
 import { execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import {
+  FIRST_SESSION_HEADER_RE,
+  SESSION_BLOCK_SEPARATOR_RE,
+  TRAILING_SEPARATOR_RE,
+} from './knowledge/session-format';
 
 interface ManifestEntry {
   label: string;
@@ -36,14 +41,12 @@ function recentGitLog(cwd: string): string | null {
 }
 
 export function findLastSessionBlockStart(content: string): number {
-  const separator = /\n\n---\n\n(?=### Session \(\d{2}:\d{2}\) )/g;
   let lastSeparator = -1;
-  let match: RegExpExecArray | null;
-  while ((match = separator.exec(content)) !== null) {
-    lastSeparator = match.index + match[0].length;
+  for (const match of content.matchAll(SESSION_BLOCK_SEPARATOR_RE)) {
+    lastSeparator = (match.index ?? 0) + match[0].length;
   }
   if (lastSeparator !== -1) return lastSeparator;
-  const firstHeader = content.match(/^### Session \(\d{2}:\d{2}\) /m);
+  const firstHeader = content.match(FIRST_SESSION_HEADER_RE);
   return firstHeader && firstHeader.index !== undefined ? firstHeader.index : -1;
 }
 
@@ -64,7 +67,7 @@ async function lastSessionTail(maxBytes: number): Promise<TailResult> {
       const content = await readFile(logPath, 'utf-8');
       const start = findLastSessionBlockStart(content);
       if (start === -1) continue;
-      const block = content.slice(start).replace(/\n\n---\n\n\s*$/, '');
+      const block = content.slice(start).replace(TRAILING_SEPARATOR_RE, '');
       const truncated =
         block.length > maxBytes
           ? `${block.slice(0, maxBytes).trimEnd()}\n\n_(truncated — full block in \`${logPath}\`)_`

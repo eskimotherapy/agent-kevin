@@ -8,6 +8,7 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { relative, resolve } from 'node:path';
 import { FOLDERS, isInitialized } from '../mcp-server/src/config';
+import { ENTRY_SEPARATOR } from '../mcp-server/src/knowledge/session-format';
 import { extractConversationContext } from '../mcp-server/src/knowledge/utils';
 import { nowTime, todayDate } from '../mcp-server/src/shared/utils';
 
@@ -120,7 +121,7 @@ async function capture(name: string, mode: Mode): Promise<void> {
   }
 
   const source = homeRelative(hookInput.cwd ?? '');
-  const entry = `### ${mode.heading} (${nowTime()}) [${sessionId.slice(0, 8)}] · ${source}\n\n${context}\n\n---\n\n`;
+  const entry = `### ${mode.heading} (${nowTime()}) [${sessionId.slice(0, 8)}] · ${source}\n\n${context}${ENTRY_SEPARATOR}`;
   await appendFile(logPath, entry, 'utf-8');
 
   process.stderr.write(`[session-capture] saved ${turnCount} turns -> ${filename}\n`);
