@@ -25,6 +25,7 @@ certificates/
 
 # ai
 .claude
+.claude-plugin/marketplace.json
 
 # logs
 logs/
