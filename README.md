@@ -382,7 +382,7 @@ Four need API keys (SerpAPI, OpenPageRank, Google OAuth + `GSC_SITE_URL` for the
 
 ### Browser pack, configured on demand
 
-- **Perplexity**, live web research with citations (`mcp__plugin_agent-kevin_perplexity__perplexity_search`). Plugin-bundled — auto-loads alongside the `kevin` MCP server; just set `PERPLEXITY_API_KEY` via `/agent-kevin:configure-skills` to activate. Way better answers than vanilla web-search and dirt-cheap on pay-as-you-go: $5 of credit lasts most personal users several days to several weeks depending on query volume. Get a key at [perplexity.ai/settings/api](https://perplexity.ai/settings/api).
+- **Perplexity**, live web search with citations (`mcp__plugin_agent-kevin_kevin__perplexity_search`). Built into the `kevin` MCP server — direct call to the Perplexity Search API, no extra subprocess; just set `PERPLEXITY_API_KEY` via `/agent-kevin:configure-skills` to activate. Way better answers than vanilla web-search and dirt-cheap on pay-as-you-go: $5 of credit lasts most personal users several days to several weeks depending on query volume. Get a key at [perplexity.ai/settings/api](https://perplexity.ai/settings/api).
 - **Playwright**, screenshot any URL, render any markdown to a styled PDF (with mermaid diagrams), record scripted page interactions. Chromium ships in the one-time `bun install`.
 
 ### Third-party skill libraries
@@ -469,7 +469,7 @@ agent-kevin/
 │   │   │   └── <id>-<slug>.md
 │   │   └── README.md
 │   └── TASKS.md
-├── .mcp.json                # only present if the user adds their own MCP servers — Kevin's bundled servers (kevin + perplexity) live in the plugin's own .mcp.json
+├── .mcp.json                # only present if the user adds their own MCP servers — Kevin's bundled `kevin` server lives in the plugin's own .mcp.json
 ├── CLAUDE.md                # operating manual + @-imports for identity stack
 │                            # (or CLAUDE.local.md if CLAUDE.md pre-existed)
 ├── IDENTITY.md              # Kevin's role + evolving self-description

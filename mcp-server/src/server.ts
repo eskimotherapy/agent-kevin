@@ -16,6 +16,7 @@ import { tools as pageSpeedTools } from './tools/google-page-speed';
 import { tools as gscTools } from './tools/google-search-console';
 import { tools as knowledgeTools } from './tools/knowledge';
 import { tools as openPageRankTools } from './tools/open-page-rank';
+import { tools as perplexityTools } from './tools/perplexity';
 import { tools as pingTools } from './tools/ping';
 import { tools as playwrightTools } from './tools/playwright';
 import { tools as serpapiTools } from './tools/serpapi';
@@ -31,6 +32,7 @@ const TOOLS: ToolDef[] = [
   ...knowledgeTools,
   ...compileTools,
   ...serpapiTools,
+  ...perplexityTools,
   ...openPageRankTools,
   ...gscTools,
   ...pageSpeedTools,

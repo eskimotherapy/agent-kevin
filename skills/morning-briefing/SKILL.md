@@ -2,7 +2,7 @@
 name: morning-briefing
 description: Tailored morning brief — signal-topic news, active threads, today's priorities. Run when you sit down at the start of the day and want a quick orient.
 disable-model-invocation: true
-allowed-tools: mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_perplexity__perplexity_search, Read, Glob, Bash
+allowed-tools: mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Glob, Bash
 ---
 
 # Morning Briefing
@@ -15,7 +15,7 @@ Compose a tight morning brief that gets you working in 30 seconds. Not an exhaus
 2. **Active tasks** — `mcp__plugin_agent-kevin_kevin__task_query` with `{status: "active"}` and `{status: "open", priority: "P0"}` / `priority: "P1"`.
 3. **Overdue + stale** — `mcp__plugin_agent-kevin_kevin__task_scan` for surface items needing attention.
 4. **Recent commits** — `git -C <HOME>/knowledge log --oneline -10` and `git -C <HOME>/projects log --oneline -10` (if those repos exist).
-5. **Signal news** — read `<HOME>/USER.md` for your interests/signal topics, then call `mcp__plugin_agent-kevin_perplexity__perplexity_search` once with the 2–3 most relevant terms. ONE call. Don't run a fan of searches.
+5. **Signal news** — read `<HOME>/USER.md` for your interests/signal topics, then call `mcp__plugin_agent-kevin_kevin__perplexity_search` once with the 2–3 most relevant terms. ONE call. Don't run a fan of searches.
 
 ## Compose
 

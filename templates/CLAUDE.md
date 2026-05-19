@@ -59,7 +59,7 @@ The agent home directory is the single source of truth for memory.
 │   ├── settings.local.json          # API keys, gitignored, project-scoped env block
 │   ├── assets/                      # Kevin's avatar (and any other plugin-shipped images)
 │   └── skills/                      # user-authored custom skills only (lazy — pack skills stay in the plugin dir)
-├── .mcp.json                        # only if you register your own MCP servers — Kevin's bundled servers (kevin + perplexity) live in the plugin's own .mcp.json
+├── .mcp.json                        # only if you register your own MCP servers — Kevin's bundled `kevin` server lives in the plugin's own .mcp.json
 ├── knowledge/
 │   ├── index.md                     # master catalog
 │   ├── user/                        # evolving long-form knowledge about you

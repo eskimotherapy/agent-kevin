@@ -1,13 +1,23 @@
 ---
 name: sync
-description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, refresh the task dashboard, then surface a briefing of what changed and what needs attention. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
+description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, refresh the task dashboard, then surface a briefing of what changed and what needs attention. Optionally chain into a morning or evening briefing. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 disable-model-invocation: true
-allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__task_dashboard, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__task_dashboard, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Sync
 
 One pass through every maintenance op, in dependency order, ending in a single status line the user can scan in a second. Use this when you've been away for a while, when you want to start a session fresh, or when something feels stale and you don't want to think about which skill to run.
+
+## Arguments
+
+Optional first arg selects a briefing to chain after sync completes:
+
+- `morning` — run the [morning-briefing](../morning-briefing/SKILL.md) protocol after step 8.
+- `evening` — run the [evening-briefing](../evening-briefing/SKILL.md) protocol after step 8.
+- _(none)_ — sync only; no briefing.
+
+The briefing reads the post-sync state, so it's strictly better than running the briefing standalone against stale data. Output gets a second block appended (see Output).
 
 ## Why this shape
 
@@ -97,6 +107,15 @@ Read <HOME>/.kevin/lint.md
 Read <HOME>/knowledge/memory/index.md   # for narrative context
 ```
 
+### 9. Briefing (only if arg supplied)
+
+If invoked with `morning` or `evening`, inline the matching briefing protocol now:
+
+- `morning` → run [morning-briefing](../morning-briefing/SKILL.md) verbatim. The Active Threads / task queries / scan results are already in context from step 8; skip the re-reads and go straight to the signal-news perplexity call + compose.
+- `evening` → run [evening-briefing](../evening-briefing/SKILL.md) verbatim. Same context-reuse — pull today's git log + closed-today tasks, then compose.
+
+If no arg, skip this step.
+
 ## Output
 
 One block, tight. Skip empty sections — don't pad.
@@ -133,6 +152,8 @@ If everything is clean: a one-liner is the right output.
 ```
 ✅ Sync complete — wiki healthy, <N> active tasks, nothing flagged.
 ```
+
+If a briefing arg was supplied, append the briefing block below the sync block (or below the one-liner). Two blocks, one message — sync on top, briefing underneath. Don't merge them; the shapes are distinct on purpose.
 
 ## Boundaries
 
