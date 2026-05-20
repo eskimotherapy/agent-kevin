@@ -1,50 +1,97 @@
 ---
 name: morning-briefing
-description: Tailored morning brief — signal-topic news, active threads, today's priorities. Run when you sit down at the start of the day and want a quick orient.
+description: Tailored morning brief — today's priorities, drafted artifacts, goals delta, per-project pulse, stale callout, signal-topic news, geopolitical news, and one concrete first move. Run when you sit down at the start of the day.
 disable-model-invocation: true
 allowed-tools: mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Glob, Bash
 ---
 
 # Morning Briefing
 
-Compose a tight morning brief that gets you working in 30 seconds. Not an exhaustive status report — just what matters today.
+A single phone-screen of orientation: what matters today, what's moved since yesterday, where the world shifted on the topics that touch your work. The previous daemon-era briefing was rich on purpose — match that depth, not a 30-line summary.
 
-## Inputs to gather (parallel where possible)
+Target: ~400–600 words, eight sections, one concrete first move, banana sign-off.
 
-1. **Active threads** — read `<HOME>/knowledge/memory/index.md` `## Active Threads` and `## Pending`.
-2. **Active tasks** — `mcp__plugin_agent-kevin_kevin__task_query` with `{status: "active"}` and `{status: "open", priority: "P0"}` / `priority: "P1"`.
-3. **Overdue + stale** — `mcp__plugin_agent-kevin_kevin__task_scan` for surface items needing attention.
-4. **Recent commits** — `git -C <HOME>/knowledge log --oneline -10` and `git -C <HOME>/projects log --oneline -10` (if those repos exist).
-5. **Signal news** — read `<HOME>/USER.md` for your interests/signal topics, then call `mcp__plugin_agent-kevin_kevin__perplexity_search` once with the 2–3 most relevant terms. ONE call. Don't run a fan of searches.
+## Inputs to gather (parallelise where possible)
+
+1. **Active threads + pending** — read `<HOME>/knowledge/memory/index.md` (`## Active Threads`, `## Pending`, `## Recent Decisions`).
+2. **Today's raw sessions** — `Glob` `<HOME>/knowledge/raw/sessions/<today>*.md`. **Read all of them.** Same for yesterday's last session if briefing runs before any session today.
+3. **Today's project deltas** — `Bash`: `find <HOME>/projects -type f -name '*.md' -newermt 'today 00:00' -not -path '*/node_modules/*'` to surface files touched today. Also `git -C <HOME> log --since='36 hours ago' --oneline` and `git -C <HOME>/projects log --since='36 hours ago' --oneline` (if a separate gitdir exists).
+4. **Tasks**:
+   - `mcp__plugin_agent-kevin_kevin__task_query` `{status:"active"}`
+   - `{status:"open", priority:"P0"}` and `{status:"open", priority:"P1"}`
+   - `mcp__plugin_agent-kevin_kevin__task_scan` for overdue / stale / blocked surfacing
+5. **Goals** — read `<HOME>/projects/TASKS.md` `## Monthly Goals` and `## Weekly Goals` blocks. If empty, note the gap.
+6. **Signal-topic news** — read `<HOME>/knowledge/user/profile.md` `## Signal Topics` (and `<HOME>/USER.md`). Run **2–4 targeted `perplexity_search` calls in parallel**, one per topic cluster relevant *today*. Suggested clusters (pick the ones that matter for current Active Threads, skip the rest):
+   - Pick clusters from the user's `## Signal Topics` (each topic or related-topic group becomes one query). Typical clusters: a competitive/industry cluster tied to the day job, a local-regulatory cluster (recency `"week"`, set `country` if applicable), an AI/tooling cluster covering the model ecosystem they build on, and a geopolitics cluster for events that touch their values or travel.
+   - Use `recency: "day"` for fast-moving clusters, `recency: "week"` for slower regulatory ones.
+   Only include items where the "so what" actually changes your day. Drop celebrity / pure-business-news noise.
+
+## Guardrails
+
+- **Trust today's raw sessions over the memory index when they disagree.** Memory compiles on a delay; raw sessions are ground truth for <24h activity.
+- **Surface artifacts in `📦 Drafted` even when no task closed.** New files in `projects/<slug>/` or `knowledge/raw/specs/` written today count as progress.
+- **Status verbs in `🏗️ Projects` must reflect what you observed in raw sessions + git + filesystem, not stale memory threads.**
+- **Cheeky one-liner fallback** — if `closed today = 0` AND no raw session today AND no project artifacts modified today AND no commits today, skip the full structure and respond with a single dry/funny line acknowledging the empty day. Don't pad with yesterday's news.
+
+## Header — date + Hijri
+
+Format the header as `🌅 Morning Brief · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`.
+
+To compute Hijri date: prefer a one-shot conversion. Try in order:
+1. `python3 -c "from hijri_converter import Gregorian; d=Gregorian.today().to_hijri(); print(f'{d.day} {d.month_name()} {d.year}')"` (if the package is installed)
+2. `python3 -c "import datetime, sys; ..."` with the standard Umm al-Qura table if available
+3. Fall back to the most recent Hijri reference in `<HOME>/knowledge/memory/index.md` + day offset (lunar months alternate 29/30 days, accurate ±1 day).
+4. If still unknown, omit the Hijri half and ship the Gregorian header alone — don't guess.
 
 ## Compose
 
-Output in this shape (concise — aim for under 30 lines total):
-
 ```
-☀️ Morning brief — <weekday>, <date>
+🌅 Morning Brief · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>
 
-🔥 Today's priorities (3 max)
-  - <task id>: <title> — <why now>
-  - ...
+🎯 Today
+  • <task-id> <P-level> — <crisp "why now"; deadline, dependency unlock, or fresh blocker>
+  • <task-id> ...
+  (3–6 bullets; mix P0/P1 active + the one P0 you should drop everything for. Inline-code task IDs.)
 
-🧭 Active threads (2-4 lines)
-  - <one bullet per current focus area>
+📦 Drafted
+  • <project-slug> — <what moved yesterday/overnight that isn't a closed task: PRs, specs, knowledge concepts, status flips, decisions>
+  • <project-slug> — ...
+  (Group by project. Pull from today's raw sessions + git log + new files. Skip section only if truly nothing drafted.)
 
-⚠️ Needs attention
-  - <overdue task or stale thread>, or "(nothing)"
+📈 Goals
+  • Monthly: <theme or "not set — N Hijri-month fires <date>"> — <status / risk>
+  • Weekly: <goal> — <on-track / at-risk / blown, with the specific signal>
+  • Weekly: ... (one bullet per weekly goal)
 
-📰 News (3 lines max)
-  - <single most relevant headline + 1-line "so what">
-  - <if anything else genuinely moves your needle today>
+🏗️ Projects
+  • <slug> — <one-line current state; what's the next material step>
+  • <slug> — ...
+  (Cover every project with movement this week. 4–6 lines.)
 
-🎯 Suggested first move
-  - <one concrete action — what to type/open/read first>
+🕸️ Stale
+  • <bundle stale/parked items into one or two callouts>; "<recommended action>: backlog sweep / accept they're parked / specific unblock"
+
+🌐 Signals
+  • <emoji> <headline + source/date> — <"so what" tied to your work>
+  • <emoji> ...
+  (3–5 items pulled from the perplexity calls. Lead each with a country / company / topic emoji.)
+
+📰 News
+  • <emoji> <headline> — <one-line why it touches your world>
+  • <emoji> ...
+  (1–3 items. Geopolitical / macro / Muslim world. Skip section if nothing material.)
+
+👉 Today: <one concrete first action — the mechanical, blocked-on-nothing, prevents-the-next-outage move>
+
+🍌
 ```
 
 ## Anti-patterns
 
-- ❌ Dumping every active task. Cap at 3 priorities.
-- ❌ Running perplexity multiple times to cover every signal topic. One pass.
-- ❌ Including news that's interesting but doesn't change today's plan.
-- ❌ Writing the brief in third person or in a corporate tone. Talk to the user directly.
+- ❌ Dumping every active task. `🎯 Today` is 3–6 sharpest items, not a backlog.
+- ❌ Running ONE perplexity call to "cover everything" — the result is mush. Run a few **focused** queries, one per cluster you actually care about today.
+- ❌ Restating Active Threads from `memory/index.md` verbatim. Briefing is *delta and direction*, not status quo.
+- ❌ Including signals/news that are interesting but don't change today's plan. If the "so what" is generic, cut it.
+- ❌ Padding `📦 Drafted` with already-in-progress work. Yesterday's deltas only.
+- ❌ Filling sections to look complete on an empty day. Use the cheeky-line fallback instead.
+- ❌ Corporate tone or third person. Talk to the user directly. Sharp, a little dry, no preamble.

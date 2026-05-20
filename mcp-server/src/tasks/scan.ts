@@ -23,7 +23,7 @@ export const discoverProjects = (): string[] => {
  * existing tasks yet.
  *   - Two-or-more hyphen-separated parts: first letter of each, capped at 2
  *     (`agent-layer` → `al`, `prophetic-day-routine` → `pd`)
- *   - Single word: first 2 letters (`walapay` → `wa`)
+ *   - Single word: first 2 letters (`homestead` → `ho`)
  */
 const derivePrefix = (slug: string): string => {
   const parts = slug.toLowerCase().split('-').filter(Boolean);
@@ -34,8 +34,8 @@ const derivePrefix = (slug: string): string => {
 /**
  * Look at existing task filenames (`<prefix>-<NNN>-<slug>.md`) and return
  * the most-used prefix, or null when the project has no tasks yet. Honors
- * legacy conventions where the derived rule would disagree (e.g. `walapay`
- * uses `wp`, not `wa`).
+ * legacy conventions where the derived rule would disagree (e.g. a project
+ * directory named `homestead` may have always used `hd`, not `ho`).
  */
 const inferPrefixFromTasks = (project: string): string | null => {
   const dir = join(FOLDERS.PROJECTS, project, 'tasks');
