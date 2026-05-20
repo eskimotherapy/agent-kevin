@@ -8,10 +8,7 @@
     "url": "https://agentlayer.one"
   },
   "homepage": "https://agentlayer.one",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AgentLayer1/agent-kevin.git"
-  },
+  "repository": "https://github.com/AgentLayer1/agent-kevin",
   "license": "Apache-2.0",
   "keywords": [
     "personal-ai",
