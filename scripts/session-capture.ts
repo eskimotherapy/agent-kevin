@@ -6,7 +6,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, relative, resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { FOLDERS, isInitialized } from '../mcp-server/src/config';
 import { ENTRY_SEPARATOR } from '../mcp-server/src/knowledge/session-format';
 import { extractConversationContext } from '../mcp-server/src/knowledge/utils';
@@ -64,29 +64,14 @@ function pluginEnabledInCwd(cwd: string): boolean {
 }
 
 /**
- * Walk up from `cwd` looking for `SOUL.md` — the universal agent-home
- * marker (any agent built on Kevin's init convention writes one). Returns
- * the agent-home directory if found, else null. Stops at filesystem root.
- */
-function findAgentHome(cwd: string): string | null {
-  if (!cwd) return null;
-  let dir = resolve(cwd);
-  while (true) {
-    if (existsSync(resolve(dir, 'SOUL.md'))) return dir;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-}
-
-/**
- * True when `cwd` lives inside another agent's home (not Kevin's). Lets
- * Kevin defer to whichever agent owns that directory tree without
- * hard-coding plugin names or paths.
+ * True when `cwd` is another agent's home (has SOUL.md and isn't Kevin's
+ * own home). SOUL.md is the universal agent-home marker — any agent built
+ * on Kevin's init convention writes one. Convention: always launch Claude
+ * from the agent home directory, not a subdir.
  */
 function isOtherAgentHome(cwd: string): boolean {
-  const agentHome = findAgentHome(cwd);
-  return agentHome !== null && agentHome !== FOLDERS.HOME;
+  if (!cwd || cwd === FOLDERS.HOME) return false;
+  return existsSync(resolve(cwd, 'SOUL.md'));
 }
 
 async function readStdin(): Promise<string> {
