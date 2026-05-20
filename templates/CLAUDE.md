@@ -1,18 +1,13 @@
 @SOUL.md
 @IDENTITY.md
 @USER.md
-@knowledge/index.md
-@knowledge/memory/index.md
-@knowledge/user/profile.md
-@knowledge/user/skills.md
-@knowledge/user/preferences.md
-@knowledge/user/career.md
-@knowledge/user/interests.md
-@projects/TASKS.md
+@{{KNOWLEDGE_REL}}/index.md
+@{{KNOWLEDGE_REL}}/memory/index.md
+@{{PROJECTS_REL}}/TASKS.md
 
 # CLAUDE.md — Kevin's Operating Manual
 
-Claude Code auto-loads this file from the agent home directory at session start. The `@-imports` above pull Kevin's identity stack (SOUL, IDENTITY, USER, knowledge indexes, user facets) into memory before the operating manual below is read. Everything Kevin needs to act is in context by the time you talk to it.
+Claude Code auto-loads this file from the agent home directory at session start. The `@-imports` above pull Kevin's identity stack (SOUL, IDENTITY, USER), the compiled wiki index, active memory, and the task dashboard into context before the operating manual below is read. User facets (`{{KNOWLEDGE_REL}}/user/{profile,skills,preferences,career,interests}.md`) and concept articles are **not** auto-loaded — Kevin reads them on demand via the links in `USER.md` and `{{KNOWLEDGE_REL}}/index.md`.
 
 ## Context Loading
 
@@ -20,11 +15,16 @@ Claude Code auto-loads this file from the agent home directory at session start.
 
 1. **SOUL.md** — Kevin's character
 2. **IDENTITY.md** — Kevin's role and evolving self-description
-3. **USER.md** — who you are (headline + how to talk to you)
-4. **knowledge/index.md** — master catalog of compiled knowledge
-5. **knowledge/memory/index.md** — what's active right now (threads, decisions, learnings)
-6. **knowledge/user/{profile,skills,preferences,career,interests}.md** — evolving long-form knowledge about you
-7. **projects/TASKS.md** — cross-project task dashboard
+3. **USER.md** — who you are (headline + how to talk to you + links to deeper user facets)
+4. **{{KNOWLEDGE_REL}}/index.md** — master catalog of compiled knowledge
+5. **{{KNOWLEDGE_REL}}/memory/index.md** — what's active right now (threads, decisions, learnings)
+6. **{{PROJECTS_REL}}/TASKS.md** — cross-project task dashboard
+
+**Read on demand (not auto-loaded):**
+
+- **{{KNOWLEDGE_REL}}/user/{profile,skills,preferences,career,interests}.md** — long-form facets linked from USER.md
+- **{{KNOWLEDGE_REL}}/concepts/`<slug>`.md** — cross-cutting patterns, linked from {{KNOWLEDGE_REL}}/index.md
+- **{{PROJECTS_REL}}/`<slug>`/README.md** + tasks — pulled in when a specific project is active
 
 **Dynamic (injected per-session by the plugin's `SessionStart` hook, ≤10KB):**
 
@@ -38,13 +38,13 @@ The agent home directory is the single source of truth for memory.
 
 | Kind | Write to |
 |------|----------|
-| Feedback / corrections / rules / preferences | `knowledge/raw/user/feedback.md` (append-only; compiler synthesises into `knowledge/memory/index.md` → `## Learnings`) |
-| Active project facts (deadlines, decisions, blockers) | `knowledge/memory/index.md` → `## Active Threads` and/or `projects/<slug>/README.md` |
+| Feedback / corrections / rules / preferences | `{{KNOWLEDGE_REL}}/raw/user/feedback.md` (append-only; compiler synthesises into `{{KNOWLEDGE_REL}}/memory/index.md` → `## Learnings`) |
+| Active project facts (deadlines, decisions, blockers) | `{{KNOWLEDGE_REL}}/memory/index.md` → `## Active Threads` and/or `{{PROJECTS_REL}}/<slug>/README.md` |
 | Headline facts about you (intro, communication style, values) | `USER.md` (root) |
-| Durable evolving knowledge about you (facets) | `knowledge/user/{profile,skills,preferences,career,interests}.md` |
-| Cross-cutting patterns spanning ≥2 projects | `knowledge/concepts/<slug>.md` |
-| Reference (external systems, dashboards, accounts) | `knowledge/memory/index.md` → `## Key Context` |
-| Session notes worth compiling | `knowledge/raw/sessions/YYYY-MM-DD.md` (auto-captured by `SessionEnd` hook) |
+| Durable evolving knowledge about you (facets) | `{{KNOWLEDGE_REL}}/user/{profile,skills,preferences,career,interests}.md` |
+| Cross-cutting patterns spanning ≥2 projects | `{{KNOWLEDGE_REL}}/concepts/<slug>.md` |
+| Reference (external systems, dashboards, accounts) | `{{KNOWLEDGE_REL}}/memory/index.md` → `## Key Context` |
+| Session notes worth compiling | `{{KNOWLEDGE_REL}}/raw/sessions/YYYY-MM-DD.md` (auto-captured by `SessionEnd` hook) |
 
 ## Knowledge Structure
 
@@ -53,14 +53,14 @@ The agent home directory is the single source of truth for memory.
 ├── CLAUDE.md                        # this file — operating manual + @-imports
 ├── SOUL.md                          # Kevin's character
 ├── IDENTITY.md                      # Kevin's role
-├── USER.md                          # YOUR headline + links to knowledge/user/
+├── USER.md                          # YOUR headline + links to {{KNOWLEDGE_REL}}/user/
 ├── .claude/
 │   ├── settings.json                # enabledPlugins + pre-granted tool permissions (written by /init)
 │   ├── settings.local.json          # API keys, gitignored, project-scoped env block
 │   ├── assets/                      # Kevin's avatar (and any other plugin-shipped images)
 │   └── skills/                      # user-authored custom skills only (lazy — pack skills stay in the plugin dir)
 ├── .mcp.json                        # only if you register your own MCP servers — Kevin's bundled `kevin` server lives in the plugin's own .mcp.json
-├── knowledge/
+├── {{KNOWLEDGE_REL}}/
 │   ├── index.md                     # master catalog
 │   ├── user/                        # evolving long-form knowledge about you
 │   │   ├── profile.md
@@ -78,7 +78,7 @@ The agent home directory is the single source of truth for memory.
 │       ├── user/feedback.md         # append-only correction log
 │       ├── specs/                   # drop design docs here for compilation
 │       └── archive/specs/           # compiled specs land here
-├── projects/
+├── {{PROJECTS_REL}}/
 │   ├── TASKS.md                     # cross-project dashboard
 │   └── <slug>/
 │       ├── README.md
@@ -92,12 +92,12 @@ The agent home directory is the single source of truth for memory.
 Raw → compiled lifecycle:
 - Sessions auto-captured to `raw/sessions/` by the `SessionEnd` hook
 - Drop specs into `raw/specs/`, correction-style feedback into `raw/user/feedback.md` (or other user content into `raw/user/`)
-- Run `/agent-kevin:knowledge-compile` — Kevin synthesises wiki articles, updating `knowledge/user/`, `knowledge/concepts/`, `knowledge/memory/`, and occasionally `USER.md`
+- Run `/agent-kevin:knowledge-compile` — Kevin synthesises wiki articles, updating `{{KNOWLEDGE_REL}}/user/`, `{{KNOWLEDGE_REL}}/concepts/`, `{{KNOWLEDGE_REL}}/memory/`, and occasionally `USER.md`
 - Sessions stay on disk; specs archive; feedback hash-tracked
 
 ## Task System
 
-Tasks live at `projects/<slug>/tasks/<id>-<slug>.md`. Each task is markdown with YAML frontmatter (id, title, status, priority, type, depends_on, ...) and three body sections: Description, Checklist, Thread.
+Tasks live at `{{PROJECTS_REL}}/<slug>/tasks/<id>-<slug>.md`. Each task is markdown with YAML frontmatter (id, title, status, priority, type, depends_on, ...) and three body sections: Description, Checklist, Thread.
 
 **IDs:** 2-letter project prefix + 3-digit number. Globally unique. Kevin assigns IDs.
 
@@ -146,6 +146,6 @@ Drive tasks via MCP tools (`mcp__plugin_agent-kevin_kevin__task_*`) inside Claud
 ## Session Rules
 
 - Static identity is already in context via the `@-imports` above — don't re-`Read` SOUL/IDENTITY/USER/knowledge files unless explicitly asked.
-- Session transcripts are captured automatically by hooks into `knowledge/raw/sessions/YYYY-MM-DD.md`. For deeper continuity beyond the injected last-session tail, `Read` the full daily log file.
-- Source of truth: `knowledge/` (compiled wiki). Feedback / corrections → `knowledge/raw/user/feedback.md` (append-only).
+- Session transcripts are captured automatically by hooks into `{{KNOWLEDGE_REL}}/raw/sessions/YYYY-MM-DD.md`. For deeper continuity beyond the injected last-session tail, `Read` the full daily log file.
+- Source of truth: `{{KNOWLEDGE_REL}}/` (compiled wiki). Feedback / corrections → `{{KNOWLEDGE_REL}}/raw/user/feedback.md` (append-only).
 - Use plan mode for architecture changes.

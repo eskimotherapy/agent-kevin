@@ -268,9 +268,28 @@ else
   COLLISION="no"
 fi
 cp "${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md" "$CLAUDE_DEST"
+
+# Substitute path placeholders so @-imports reflect the chosen
+# KNOWLEDGE_ROOT / PROJECTS_ROOT (may differ from the defaults if the user
+# picked "Specify" in Step 6). Falls back to relative paths when the root is
+# under HOME_DIR, absolute otherwise.
+relpath() {
+  case "$1" in
+    "$HOME_DIR") echo "." ;;
+    "$HOME_DIR"/*) echo "${1#$HOME_DIR/}" ;;
+    *) echo "$1" ;;
+  esac
+}
+KNOWLEDGE_REL="$(relpath "$KNOWLEDGE_ROOT")"
+PROJECTS_REL="$(relpath "$PROJECTS_ROOT")"
+sed -i.bak \
+  -e "s|{{KNOWLEDGE_REL}}|${KNOWLEDGE_REL}|g" \
+  -e "s|{{PROJECTS_REL}}|${PROJECTS_REL}|g" \
+  "$CLAUDE_DEST"
+rm "$CLAUDE_DEST.bak"
 ```
 
-- `$CLAUDE_DEST` ← `cp ${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` (verbatim — operating manual + `@-imports` for SOUL/IDENTITY/USER/knowledge)
+- `$CLAUDE_DEST` ← `cp ${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` then placeholder-substituted so `@-imports` point at the active `KNOWLEDGE_ROOT` / `PROJECTS_ROOT`
 
 If `COLLISION="yes"`, note this for the Step 9 status block so the user knows Kevin wrote to `CLAUDE.local.md`. Claude Code auto-loads `.local.md` files alongside the main `CLAUDE.md`, so the user's existing instructions and Kevin's coexist — Kevin's `@-imports` cascade still pulls in the identity stack.
 
