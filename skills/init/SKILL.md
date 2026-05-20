@@ -292,7 +292,7 @@ fi
 
 Match is exact-line (`grep -xF`) — so `.kevin/` won't false-match on `!.kevin/keep-me` or a partial substring. The full template (when written fresh) also ignores secrets (`.env*`, `keys.json`, `*.pem`, `*.key`, `certificates/`) and OS cruft (`.DS_Store`, `Thumbs.db`); on collision we trust the user's existing patterns for those and only enforce the two Kevin-specific entries.
 
-Write project settings so the plugin auto-loads on subsequent launches AND all its bundled MCP tools are pre-granted (no per-call confirm prompts):
+Write project settings so the plugin auto-loads on subsequent launches AND the **always-on core** MCP tools are pre-granted (no per-call confirm prompts). Pack-gated tools are NOT granted here — they land in `permissions.allow` only when the matching `configure-skills` walk runs (Step 8 inline or `/agent-kevin:configure-skills` later).
 
 - `$HOME_DIR/.claude/settings.json` ← JSON below, with `<PLUGIN_PATH>` substituted with the absolute value of `${CLAUDE_PLUGIN_ROOT}`.
 
@@ -323,28 +323,16 @@ Write project settings so the plugin auto-loads on subsequent launches AND all i
       "mcp__plugin_agent-kevin_kevin__compile_next",
       "mcp__plugin_agent-kevin_kevin__compile_status",
       "mcp__plugin_agent-kevin_kevin__compile_write",
-      "mcp__plugin_agent-kevin_kevin__google_auth",
-      "mcp__plugin_agent-kevin_kevin__gsc_inspect",
-      "mcp__plugin_agent-kevin_kevin__gsc_query",
-      "mcp__plugin_agent-kevin_kevin__gsc_sites",
       "mcp__plugin_agent-kevin_kevin__links_rewrite",
       "mcp__plugin_agent-kevin_kevin__memory_prune",
-      "mcp__plugin_agent-kevin_kevin__open_page_rank",
-      "mcp__plugin_agent-kevin_kevin__page_speed_audit",
-      "mcp__plugin_agent-kevin_kevin__page_speed_psi",
       "mcp__plugin_agent-kevin_kevin__ping",
-      "mcp__plugin_agent-kevin_kevin__playwright_pdf",
-      "mcp__plugin_agent-kevin_kevin__playwright_record",
-      "mcp__plugin_agent-kevin_kevin__playwright_screenshot",
-      "mcp__plugin_agent-kevin_kevin__serpapi_search",
       "mcp__plugin_agent-kevin_kevin__task_close",
       "mcp__plugin_agent-kevin_kevin__task_create",
       "mcp__plugin_agent-kevin_kevin__task_get",
       "mcp__plugin_agent-kevin_kevin__task_query",
       "mcp__plugin_agent-kevin_kevin__task_scan",
       "mcp__plugin_agent-kevin_kevin__task_thread",
-      "mcp__plugin_agent-kevin_kevin__task_update",
-      "mcp__plugin_agent-kevin_kevin__perplexity_search"
+      "mcp__plugin_agent-kevin_kevin__task_update"
     ]
   }
 }
@@ -352,7 +340,15 @@ Write project settings so the plugin auto-loads on subsequent launches AND all i
 
 **Why no `extraKnownMarketplaces` entry?** The marketplace registration was already saved to the user's global `~/.claude/settings.json` when they first ran `/plugin marketplace add` (Option A) or were prompted to trust the marketplace (Option B). Duplicating it in project settings is redundant — only `enabledPlugins` is needed here to opt this specific home into agent-kevin.
 
-**Why pre-grant the full plugin MCP surface at init time?** Plugin-bundled tools can't be granted via the plugin's own `settings.json` — Claude Code only honors `agent`/`subagentStatusLine` keys at the plugin root and silently ignores everything else. The project-level `<HOME>/.claude/settings.json` is the canonical place, so granting the full `kevin` MCP surface here (25 tools — including `perplexity_search`, which wraps the Perplexity Search API natively) means the user consents once (by running `/init`) and tool calls never re-prompt afterwards. They can revoke individual entries by editing the file. `perplexity_search` is callable on every session but stays inert until `PERPLEXITY_API_KEY` lands in `settings.local.json` via Step 8's Browser pack walk (or `/agent-kevin:configure-skills` later).
+**Why only the always-on core is granted here.** Plugin-bundled MCP tools register into the session regardless of permissions — `permissions.allow` only controls whether tool calls trigger a confirm prompt. The "always-on core" (`ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`) needs no external config; the pack-gated tools need API keys or OAuth that only get set when the user opts into the matching pack. Granting them at init time would mean `settings.json` advertises packs the user never configured. Conditional grants keep `settings.json` an accurate audit trail.
+
+**Bucket model** (which flow writes which permissions):
+
+| Bucket | Tools | Granted when |
+|---|---|---|
+| Always-on core | `ping`, `compile_*`, `memory_prune`, `task_*`, `links_rewrite` | `/init` (above) |
+| SEO-gated | `serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth` | configure-skills A.2a (SEO walk) |
+| Browser-gated | `perplexity_search`, `playwright_*` | configure-skills A.2b (Browser walk) |
 
 **Why the Bash entries are scoped this narrowly:** broad patterns like `Bash(git *)` or `Bash(curl *)` would also authorize destructive forms (`git push --force`, `git reset --hard`, `curl attacker.com | sh`). The patterns above cover the read-mostly + scaffold-creation commands core skills actually use (`git log/status/diff/config`, `date`, `readlink`, `ls`, `find`, `cat`, `mkdir -p`, `test`, `echo`) — nothing that mutates source-control state or hits the network. **Network/curl is intentionally NOT pre-granted anywhere** — `wordpress-rest` and any other skill that makes outbound HTTP confirms on first call; the user picks "Always allow" to lock the grant to their actual URL pattern (much tighter than blanket `Bash(curl *)`).
 
@@ -362,6 +358,8 @@ USER.md template:
 
 ```markdown
 # About <NAME>
+
+<AVATAR_LINE>
 
 Kevin reads this every session (via `@-import` in `CLAUDE.md`). The headline of who I am and how I want Kevin to work with me.
 
@@ -389,7 +387,31 @@ These files hold my evolving long-form knowledge. Kevin reads them on demand and
 - [Interests](knowledge/user/interests.md)
 ```
 
+`<AVATAR_LINE>` rendering:
+- If Step 5b staged a user avatar at `<KNOWLEDGE_ROOT>/user/assets/avatar.<ext>` → render `![Avatar](knowledge/user/assets/avatar.<ext>)` (path relative to `<HOME_DIR>`, since CLAUDE.md `@-imports` USER.md from there).
+- If Step 5b was skipped → omit the line entirely (no empty placeholder).
+
 Write the five `knowledge/user/<facet>.md` files. If Step 5 ran with URLs, populate from the synthesised content with `sources:` populated. Otherwise write empty-with-frontmatter stubs.
+
+Also write `.claude/settings.local.json` so the env keys Kevin's optional packs consume have empty placeholders ready for the user to fill in their editor after relaunch. **Never solicit values via chat** — secrets must not enter the session transcript or the Anthropic API. The session-capture hook redacts known prefixes (`pplx-…`, `sk-…`, `AIza…`, etc.) as defense-in-depth, but the safer move is to keep values off the wire entirely.
+
+- **If the file does not exist:** write the scaffold below.
+- **If the file exists:** never overwrite existing non-empty values. Merge in any missing keys at the JSON level (set them to `""`) so the slots are discoverable in the editor.
+
+Scaffold:
+
+```json
+{
+  "env": {
+    "PERPLEXITY_API_KEY": "",
+    "SERPAPI_KEY": "",
+    "OPENPAGERANK_API_KEY": "",
+    "GSC_SITE_URL": ""
+  }
+}
+```
+
+The Step 8 pack walks handle non-secret config (permission grants, Google OAuth file drop, host-scoped curl grants) but defer all *value* entry to the editor. Step 9's "Next" block instructs the user explicitly.
 
 Write `knowledge/index.md` and `knowledge/memory/index.md` as master indexes with empty placeholder sections.
 
@@ -419,18 +441,18 @@ The scaffold is done. Before showing the final confirmation, offer to wire up AP
 
 `AskUserQuestion` (**multi-select**, so the user can tick any combination):
 
-> **Configure skills now?**
-> Pack skills already ship loaded with the plugin — this step wires API keys, MCP server registrations, and tool permissions so the keyed skills actually work. Third-party libraries are separately authored (Apache-2.0 etc.) and get cloned into your `<HOME>/.claude/skills/` on demand. Tick any combination, or skip entirely to come back later via `/agent-kevin:configure-skills`.
+> **Activate skill packs now?**
+> Each pack already ships loaded with the plugin. Activating a pack grants its MCP tool permissions in `settings.json` (so calls don't re-prompt) and ensures empty env placeholders exist in `settings.local.json` for the keys you'll fill via your editor. Skip entirely if you want to come back later via `/agent-kevin:configure-skills`.
 >
 > - ☐ SEO pack (serpapi · open-page-rank · GSC · page-speed · WP · search-audit)
-> - ☐ Browser pack (perplexity search + playwright screenshot/pdf/record permissions)
+> - ☐ Browser pack (perplexity search + playwright screenshot/pdf/record)
 > - ☐ Third-party libraries (aaron-he-zhu SEO/GEO skills, coreyhaines31 marketing playbooks, others)
 
 Behavior on the response:
-- **Each ticked option**: run the matching configure-skills section in order — SEO (A.2a) → Browser (A.2b) → Third-party (F).
-- **Nothing ticked**: skip — note "skill configuration skipped — run `/agent-kevin:configure-skills` after relaunch" for Step 9's status block. Don't touch settings files.
+- **Each ticked option**: run the matching configure-skills section in order — SEO (A.2a) → Browser (A.2b) → Third-party (F). The walks **never prompt for API key values in chat** — they only add MCP grants to `settings.json` and ensure empty placeholder slots exist in `settings.local.json`. The user fills values via their editor after relaunch.
+- **Nothing ticked**: skip — note "skill packs not activated — run `/agent-kevin:configure-skills` after relaunch" for Step 9's status block. Don't touch settings files.
 
-For each picked option: **delegate to configure-skills** — open `${CLAUDE_PLUGIN_ROOT}/skills/configure-skills/SKILL.md` and follow the matching section. Honor every per-skill skip option inside that flow; don't force the user through items they don't want. The walks write to `$HOME_DIR/.claude/settings.{json,local.json}`, `$HOME_DIR/.mcp.json`, and `$HOME_DIR/.claude/skills/<author>-<repo>/` (third-party clones).
+For each picked option: **delegate to configure-skills** — open `${CLAUDE_PLUGIN_ROOT}/skills/configure-skills/SKILL.md` and follow the matching section. Honor every per-skill skip option inside that flow; don't force the user through items they don't want.
 
 ---
 
@@ -462,10 +484,9 @@ Blank line, then the status block as plain prose (one row per line, two-space gu
 > `<SKILL_PACK_ROW>`
 > ⏳ Custom skills none — author with `/agent-kevin:configure-skills`
 
-For `<SKILL_PACK_ROW>`, render the row based on what Step 8 did:
-- If user skipped Step 8 entirely → `⏳ Skill packs   none configured — run /agent-kevin:configure-skills later`
-- If user configured SEO and/or Browser (fully or partially) → `✅ Skill packs   <list, e.g. "SEO (4/4 keyed skills configured), Browser (perplexity + playwright)">`
-- If user configured but skipped individual sub-items → list what was set + note what's still pending: `✅ Skill packs   SEO (2/4 keyed; serpapi + open-page-rank set, GSC + page-speed deferred), Browser skipped`
+For `<SKILL_PACK_ROW>`, render the row based on what Step 8 did. Note: "activated" here means permissions + placeholders, not key values (those come from the user editing `settings.local.json`).
+- If user skipped Step 8 entirely → `⏳ Skill packs   none activated — run /agent-kevin:configure-skills later`
+- If user activated SEO and/or Browser → `✅ Skill packs   <list, e.g. "SEO (perms granted; fill SERPAPI_KEY + OPENPAGERANK_API_KEY + GSC_SITE_URL in settings.local.json), Browser (perms granted; fill PERPLEXITY_API_KEY)">`
 
 Use ✅ for what landed and ⏳ for deferred (the hourglass implies "queued for later"). Don't list `<FACET_FILES_FILLED>/5` if Step 5 was skipped — just say "stubs only" instead.
 
@@ -477,6 +498,15 @@ For the operating-manual row:
 Blank line, then the **Next** heading (same style as Ready), then the relaunch prose. **Important: the user must exit and relaunch** so the new `.claude/settings.json` is picked up by Claude Code:
 
 > 🚀 **Next**
+>
+> **Fill the env values.** Open `<HOME_DIR>/.claude/settings.local.json` in your editor. The `env` block holds every secret Kevin's optional packs consume — they're scaffolded as empty strings on purpose so they never pass through a chat transcript. Fill the ones you need:
+>
+> - `PERPLEXITY_API_KEY` — for `perplexity_search` (sign up at https://perplexity.ai/settings/api)
+> - `SERPAPI_KEY` — for SEO pack's `serpapi_search` (https://serpapi.com)
+> - `OPENPAGERANK_API_KEY` — for SEO pack's `open_page_rank` (https://openpagerank.com)
+> - `GSC_SITE_URL` — your Search Console property (set this before running `mcp__plugin_agent-kevin_kevin__google_auth` for GSC/PageSpeed)
+>
+> Leave blanks for anything you don't need. Tools whose key is empty stay loaded but return "missing env var" if called — fill the value any time later and the next session picks it up.
 >
 > **One-time MCP-server install.** Kevin's MCP server runs from the plugin directory and needs its node_modules. From a separate terminal (or after `/exit`), run:
 >

