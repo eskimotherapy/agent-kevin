@@ -10,10 +10,10 @@
  * recent git activity. Caps at ~10KB per CC's hook limit, but usually fits in
  * a few KB.
  */
-import { CONTEXT, FOLDERS, TIMEZONE } from '@/config';
+import { CONTEXT, EXTRA_GIT_REPOS, FOLDERS, TIMEZONE } from '@/config';
 import { execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 import {
   FIRST_SESSION_HEADER_RE,
   SESSION_BLOCK_SEPARATOR_RE,
@@ -131,21 +131,29 @@ export async function assembleContext(): Promise<AssembledContext> {
     timeZone: TIMEZONE
   });
 
-  const gitLog = recentGitLog(FOLDERS.KNOWLEDGE);
+  const repos: { label: string; path: string }[] = [
+    { label: 'knowledge', path: FOLDERS.KNOWLEDGE },
+    ...EXTRA_GIT_REPOS.map((path) => ({ label: basename(path), path }))
+  ];
+  const gitLogs = repos.map((repo) => ({ ...repo, output: recentGitLog(repo.path) }));
 
   const entries: ManifestEntry[] = [
     tail.entry,
-    {
-      label: 'git activity',
-      status: gitLog ? 'loaded' : 'unavailable',
-      bytes: gitLog?.length ?? 0,
-      note: gitLog ? `${gitLog.split('\n').length} commits` : undefined
-    }
+    ...gitLogs.map((log) => ({
+      label: `git: ${log.label}`,
+      status: (log.output ? 'loaded' : 'unavailable') as ManifestEntry['status'],
+      bytes: log.output?.length ?? 0,
+      note: log.output ? `${log.output.split('\n').length} commits` : undefined
+    }))
   ];
 
   const parts: string[] = [`## Today\n${dateStr} (${TIMEZONE})`];
   if (tail.content) parts.push(`## Last Session Tail\n\n${tail.content}`);
-  if (gitLog) parts.push(`## Recent Git Activity\n\n\`\`\`\n${gitLog}\n\`\`\``);
+
+  const gitSections = gitLogs
+    .filter((log) => log.output)
+    .map((log) => `### ${log.label}\n\n\`\`\`\n${log.output}\n\`\`\``);
+  if (gitSections.length > 0) parts.push(`## Recent Git Activity\n\n${gitSections.join('\n\n')}`);
 
   let context = parts.join('\n\n---\n\n');
   if (context.length > CONTEXT.MAX_CHARS) {

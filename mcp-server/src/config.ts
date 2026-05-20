@@ -34,6 +34,15 @@ export const FOLDERS = {
   PROJECTS: fromEnv('KEVIN_PROJECTS', resolve(KEVIN_HOME, 'projects'))
 } as const;
 
+/** Extra git repos surfaced in the SessionStart context alongside the knowledge
+ * directory. Configure via `KEVIN_GIT_REPOS` env var (comma-separated paths,
+ * `~` expanded). The basename of each path is used as its section label. */
+export const EXTRA_GIT_REPOS: readonly string[] = (process.env.KEVIN_GIT_REPOS ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .map(tildify);
+
 export const FILES = {
   CONFIG: resolve(FOLDERS.CONFIG, 'config.json'),
   KNOWLEDGE_STATE: resolve(DATA_ROOT, 'knowledge.json'),
