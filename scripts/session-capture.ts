@@ -63,6 +63,17 @@ function pluginEnabledInCwd(cwd: string): boolean {
   }
 }
 
+/**
+ * True when `cwd` is another agent's home (has SOUL.md and isn't Kevin's
+ * own home). SOUL.md is the universal agent-home marker — any agent built
+ * on Kevin's init convention writes one. Lets Kevin defer to whichever
+ * agent owns that directory without hard-coding plugin names or paths.
+ */
+function isOtherAgentHome(cwd: string): boolean {
+  if (!cwd || cwd === FOLDERS.HOME) return false;
+  return existsSync(resolve(cwd, 'SOUL.md'));
+}
+
 async function readStdin(): Promise<string> {
   return new Promise((resolveFn) => {
     let data = '';
@@ -94,9 +105,16 @@ async function capture(name: string, mode: Mode): Promise<void> {
   const sessionId = hookInput.session_id ?? 'unknown';
   const transcriptPath = hookInput.transcript_path ?? '';
 
-  if (!isPluginInvocation() && pluginEnabledInCwd(hookInput.cwd ?? '')) {
-    process.stderr.write(`[session-capture] SKIP — plugin hook will capture\n`);
-    return;
+  const cwd = hookInput.cwd ?? '';
+  if (!isPluginInvocation()) {
+    if (pluginEnabledInCwd(cwd)) {
+      process.stderr.write(`[session-capture] SKIP — plugin hook will capture\n`);
+      return;
+    }
+    if (isOtherAgentHome(cwd)) {
+      process.stderr.write(`[session-capture] SKIP — another agent owns ${cwd}\n`);
+      return;
+    }
   }
 
   if (!transcriptPath || !existsSync(transcriptPath)) {
@@ -120,7 +138,7 @@ async function capture(name: string, mode: Mode): Promise<void> {
     await writeFile(logPath, `# Session Log: ${today}\n\n`, 'utf-8');
   }
 
-  const source = homeRelative(hookInput.cwd ?? '');
+  const source = homeRelative(cwd);
   const entry = `### ${mode.heading} (${nowTime()}) [${sessionId.slice(0, 8)}] · ${source}\n\n${context}${ENTRY_SEPARATOR}`;
   await appendFile(logPath, entry, 'utf-8');
 
