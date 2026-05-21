@@ -342,11 +342,13 @@ Write project settings so the plugin auto-loads on subsequent launches AND the *
       "mcp__plugin_agent-kevin_kevin__compile_next",
       "mcp__plugin_agent-kevin_kevin__compile_status",
       "mcp__plugin_agent-kevin_kevin__compile_write",
+      "mcp__plugin_agent-kevin_kevin__knowledge_lint",
       "mcp__plugin_agent-kevin_kevin__links_rewrite",
       "mcp__plugin_agent-kevin_kevin__memory_prune",
       "mcp__plugin_agent-kevin_kevin__ping",
       "mcp__plugin_agent-kevin_kevin__task_close",
       "mcp__plugin_agent-kevin_kevin__task_create",
+      "mcp__plugin_agent-kevin_kevin__task_dashboard",
       "mcp__plugin_agent-kevin_kevin__task_get",
       "mcp__plugin_agent-kevin_kevin__task_query",
       "mcp__plugin_agent-kevin_kevin__task_scan",
@@ -359,7 +361,7 @@ Write project settings so the plugin auto-loads on subsequent launches AND the *
 
 **Why no `extraKnownMarketplaces` entry?** The marketplace registration was already saved to the user's global `~/.claude/settings.json` when they first ran `/plugin marketplace add` (Option A) or were prompted to trust the marketplace (Option B). Duplicating it in project settings is redundant — only `enabledPlugins` is needed here to opt this specific home into agent-kevin.
 
-**Why only the always-on core is granted here.** Plugin-bundled MCP tools register into the session regardless of permissions — `permissions.allow` only controls whether tool calls trigger a confirm prompt. The "always-on core" (`ping`, `compile_*`, `task_*`, `links_rewrite`, `memory_prune`) needs no external config; the pack-gated tools need API keys or OAuth that only get set when the user opts into the matching pack. Granting them at init time would mean `settings.json` advertises packs the user never configured. Conditional grants keep `settings.json` an accurate audit trail.
+**Why only the always-on core is granted here.** Plugin-bundled MCP tools register into the session regardless of permissions — `permissions.allow` only controls whether tool calls trigger a confirm prompt. The "always-on core" (`ping`, `compile_*`, `knowledge_lint`, `task_*`, `links_rewrite`, `memory_prune`) needs no external config; the pack-gated tools need API keys or OAuth that only get set when the user opts into the matching pack. Granting them at init time would mean `settings.json` advertises packs the user never configured. Conditional grants keep `settings.json` an accurate audit trail.
 
 **Bucket model** (which flow writes which permissions):
 
