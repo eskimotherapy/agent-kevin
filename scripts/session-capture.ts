@@ -10,7 +10,10 @@ import { relative, resolve } from 'node:path';
 import { FOLDERS, isInitialized } from '../mcp-server/src/config';
 import { ENTRY_SEPARATOR } from '../mcp-server/src/knowledge/session-format';
 import { extractConversationContext } from '../mcp-server/src/knowledge/utils';
+import { log as baseLog } from '../mcp-server/src/shared/log';
 import { nowTime, todayDate } from '../mcp-server/src/shared/utils';
+
+const log = baseLog.session.with('capture');
 
 interface Mode {
   heading: string;
@@ -97,7 +100,7 @@ function parseHookInput(raw: string): HookInput {
 
 async function capture(name: string, mode: Mode): Promise<void> {
   if (!isInitialized()) {
-    process.stderr.write(`[session-capture] SKIP — /agent-kevin:init not run yet\n`);
+    log.info(`skip (${name}) — /agent-kevin:init not run yet`);
     return;
   }
 
@@ -108,23 +111,23 @@ async function capture(name: string, mode: Mode): Promise<void> {
   const cwd = hookInput.cwd ?? '';
   if (!isPluginInvocation()) {
     if (pluginEnabledInCwd(cwd)) {
-      process.stderr.write(`[session-capture] SKIP — plugin hook will capture\n`);
+      log.info(`skip (${name}) — plugin hook will capture`);
       return;
     }
     if (isOtherAgentHome(cwd)) {
-      process.stderr.write(`[session-capture] SKIP — another agent owns ${cwd}\n`);
+      log.info(`skip (${name}) — another agent owns ${cwd}`);
       return;
     }
   }
 
   if (!transcriptPath || !existsSync(transcriptPath)) {
-    process.stderr.write(`[session-capture] SKIP — no transcript at ${transcriptPath}\n`);
+    log.warn(`skip (${name}) — no transcript at ${transcriptPath}`);
     return;
   }
 
   const { context, turnCount } = extractConversationContext(transcriptPath);
   if (!context.trim() || turnCount < mode.minTurns) {
-    process.stderr.write(`[session-capture] SKIP — ${turnCount} turns (min ${mode.minTurns})\n`);
+    log.info(`skip (${name}) — ${turnCount} turns (min ${mode.minTurns})`);
     return;
   }
 
@@ -142,7 +145,7 @@ async function capture(name: string, mode: Mode): Promise<void> {
   const entry = `### ${mode.heading} (${nowTime()}) [${sessionId.slice(0, 8)}] · ${source}\n\n${context}${ENTRY_SEPARATOR}`;
   await appendFile(logPath, entry, 'utf-8');
 
-  process.stderr.write(`[session-capture] saved ${turnCount} turns -> ${filename}\n`);
+  log.info(`saved ${turnCount} turns → ${filename} (${name})`);
   if (mode.event) {
     const systemMessage = `💾 Saved ${turnCount} turn${turnCount === 1 ? '' : 's'} to ${filename}`;
     process.stdout.write(
@@ -157,14 +160,12 @@ function main(): void {
   const name = process.argv[2];
   const mode = name ? MODES[name] : undefined;
   if (!mode) {
-    process.stderr.write(
-      `session-capture.ts: unknown mode "${name}". Expected: ${Object.keys(MODES).join(', ')}\n`,
-    );
+    log.error(`unknown mode "${name}" — expected: ${Object.keys(MODES).join(', ')}`);
     process.exit(1);
   }
 
   capture(name, mode).catch((err) => {
-    process.stderr.write(`[session-capture] fatal: ${err instanceof Error ? err.message : err}\n`);
+    log.error('fatal', err);
     process.exit(1);
   });
 }

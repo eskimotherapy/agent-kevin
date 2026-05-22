@@ -1,56 +1,210 @@
 /**
- * Stderr-only logger with scoped sub-loggers. stdout is reserved for MCP JSON-RPC.
+ * Structured logger for agent-kevin — MCP server, tools, CLI, hook scripts.
  *
- * Two API shapes for compatibility with the agent-kevin codebase that this plugin
- * ports from:
- *   - createLogger('scope') -> { info, warn, error }  (tasks/* modules)
- *   - log.knowledge.with('sub') -> { info, warn, error }  (knowledge/* modules)
+ * Default routing:
+ *   - stderr = every level (MCP stdout is reserved for JSON-RPC; the hook
+ *     scripts in `scripts/` reserve stdout for protocol payloads). We never
+ *     write logs to stdout, so this module is safe to import from anywhere.
+ *   - file   = every level (durable audit, <HOME>/.kevin/logs/app.log)
  *
- * Optional file tee when KEVIN_LOG_FILE is set.
+ * No setStderrOnly() toggle. There is no path that writes to stdout — so the
+ * logger is hook-safe by construction. Override the file path via
+ * `KEVIN_LOG_FILE`; disable file output entirely with `KEVIN_LOG_FILE=off`.
+ *
+ * File output rotates when it crosses MAX_LOG_BYTES (5MB) to a timestamped
+ * sibling (`app.20260523-160300.log`). No auto-delete — operator prunes
+ * `<HOME>/.kevin/logs/` when desired.
+ *
+ * Scopes are one per module, with chainable sub-scopes:
+ *   log.knowledge.with('compile').warn('parse failed')
+ *   // → [...] WARN [📚 knowledge] [compile] parse failed
+ *
+ * `with()` accepts a static string OR a lazy `() => string` closure so a sub
+ * scope can reference a not-yet-defined constant (e.g. a tool's `name`).
+ *
+ * Secrets are scrubbed two ways before serialisation:
+ *   - any env value listed in SENSITIVE_KEYS is replaced with [REDACTED]
+ *   - any literal Bearer token / JWT pattern is masked
  */
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const LOG_FILE = process.env.KEVIN_LOG_FILE ? resolve(process.env.KEVIN_LOG_FILE) : null;
+// ── Types ─────────────────────────────────────────────────────────────
 
-const stamp = () => new Date().toISOString();
+type Level = 'debug' | 'info' | 'warn' | 'error';
 
-function emit(level: 'INFO' | 'WARN' | 'ERROR', scope: string, message: string, extra?: unknown) {
-  const tail = extra !== undefined ? ` ${typeof extra === 'string' ? extra : JSON.stringify(extra)}` : '';
-  const line = `[${stamp()}] ${level} [${scope}] ${message}${tail}`;
-  process.stderr.write(line + '\n');
-  if (LOG_FILE) {
-    try {
-      appendFileSync(LOG_FILE, line + '\n');
-    } catch {
-      // best effort
-    }
+const LEVEL_ORDER: Record<Level, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+// ── Config ────────────────────────────────────────────────────────────
+
+let minLevel: Level = ((process.env.KEVIN_LOG_LEVEL ?? process.env.LOG_LEVEL) as Level) ?? 'info';
+const MAX_LOG_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Resolved at first write to avoid forcing a circular import on `@/config`
+ * (which would drag the whole FOLDERS tree into hook scripts that just want
+ * to log a line). `KEVIN_LOG_FILE` tells us where to write; `=off` disables.
+ */
+function resolveLogFile(): string | null {
+  const env = process.env.KEVIN_LOG_FILE?.trim();
+  if (env === 'off') return null;
+  if (env) return resolve(env);
+  // Default: <HOME>/.kevin/logs/app.log. KEVIN_HOME mirrors the MCP server's
+  // resolution; if neither is set, fall back to cwd so hooks still capture.
+  const home = (process.env.KEVIN_HOME?.trim() || process.cwd()).replace(/\/$/, '');
+  return resolve(home, '.kevin', 'logs', 'app.log');
+}
+
+/** Env-var names whose values must never appear verbatim in any log line. */
+const SENSITIVE_KEYS = [
+  'PERPLEXITY_API_KEY',
+  'SERPAPI_KEY',
+  'OPENPAGERANK_API_KEY',
+  'GOOGLE_OAUTH_CLIENT_SECRET',
+] as const;
+
+// ── Rotation helpers ──────────────────────────────────────────────────
+
+/** Local-time timestamp suffix for rotated files: 20260523-160300. */
+function rotationStamp(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function rotateIfNeeded(logFile: string): void {
+  try {
+    if (!existsSync(logFile)) return;
+    if (statSync(logFile).size < MAX_LOG_BYTES) return;
+    const idx = logFile.lastIndexOf('.log');
+    const rotated = idx >= 0 ? `${logFile.slice(0, idx)}.${rotationStamp()}.log` : `${logFile}.${rotationStamp()}`;
+    renameSync(logFile, rotated);
+  } catch {
+    // best-effort rotation — logging must never crash the caller
   }
 }
 
-export interface ScopedLogger {
-  info: (msg: string, extra?: unknown) => void;
-  warn: (msg: string, extra?: unknown) => void;
-  error: (msg: string, extra?: unknown) => void;
-  with: (subscope: string) => ScopedLogger;
+// ── Scrubber ──────────────────────────────────────────────────────────
+
+const TOKEN_PATTERNS: RegExp[] = [
+  /\bBearer\s+[A-Za-z0-9._-]+/gi, // Authorization: Bearer <token>
+  /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, // JWTs
+];
+
+function scrub(str: string): string {
+  let out = str;
+  for (const key of SENSITIVE_KEYS) {
+    const value = process.env[key];
+    if (value && value.length >= 8) out = out.split(value).join('[REDACTED]');
+  }
+  for (const pattern of TOKEN_PATTERNS) {
+    out = out.replace(pattern, '[REDACTED]');
+  }
+  return out;
 }
 
-export function createLogger(scope: string): ScopedLogger {
+function serializeMeta(meta: unknown): string {
+  if (meta instanceof Error) {
+    return JSON.stringify({
+      error: scrub(meta.message),
+      stack: meta.stack?.split('\n').slice(0, 3).map(scrub).join(' <- '),
+    });
+  }
+  try {
+    return scrub(JSON.stringify(meta));
+  } catch {
+    return scrub(String(meta));
+  }
+}
+
+// ── Emit ──────────────────────────────────────────────────────────────
+
+let cachedLogFile: string | null | undefined;
+
+function writeToFile(line: string): void {
+  if (cachedLogFile === undefined) cachedLogFile = resolveLogFile();
+  if (cachedLogFile === null) return;
+  try {
+    const dir = cachedLogFile.slice(0, cachedLogFile.lastIndexOf('/'));
+    if (dir && !existsSync(dir)) mkdirSync(dir, { recursive: true });
+    rotateIfNeeded(cachedLogFile);
+    appendFileSync(cachedLogFile, line + '\n');
+  } catch {
+    // best-effort file write — never crash the caller
+  }
+}
+
+function emit(level: Level, scope: string, message: string, meta?: unknown): void {
+  if (LEVEL_ORDER[level] < LEVEL_ORDER[minLevel]) return;
+
+  const tag = level.toUpperCase().padEnd(5);
+  const head = `${new Date().toISOString()} ${tag} [${scope}] ${scrub(message)}`;
+  const line = meta !== undefined ? `${head} | ${serializeMeta(meta)}` : head;
+
+  // stderr only — MCP stdout is JSON-RPC, hook scripts reserve stdout for
+  // protocol payloads. There is no level that ever writes to stdout.
+  process.stderr.write(line + '\n');
+  writeToFile(line);
+}
+
+// ── Public API ────────────────────────────────────────────────────────
+
+export interface Logger {
+  debug(message: string, meta?: unknown): void;
+  info(message: string, meta?: unknown): void;
+  warn(message: string, meta?: unknown): void;
+  error(message: string, meta?: unknown): void;
+  /**
+   * Return a child logger whose messages are auto-prefixed with `[<prefix>]`.
+   * Accepts a string or a `() => string` (the latter lets you reference a
+   * not-yet-defined constant, e.g. a plugin's `name`). Chainable:
+   * `log.knowledge.with('compile').with('chunk')` → `[📚 knowledge] [compile] [chunk] …`.
+   */
+  with(prefix: string | (() => string)): Logger;
+}
+
+/** Raise or lower the runtime threshold. Per-process; no cross-process effect. */
+export function setMinLevel(level: Level): void {
+  minLevel = level;
+}
+
+function subLogger(scope: string, transform: (msg: string) => string): Logger {
   return {
-    info: (msg, extra) => emit('INFO', scope, msg, extra),
-    warn: (msg, extra) => emit('WARN', scope, msg, extra),
-    error: (msg, extra) => emit('ERROR', scope, msg, extra),
-    with: (subscope) => createLogger(`${scope}.${subscope}`)
+    debug: (msg, meta) => emit('debug', scope, transform(msg), meta),
+    info: (msg, meta) => emit('info', scope, transform(msg), meta),
+    warn: (msg, meta) => emit('warn', scope, transform(msg), meta),
+    error: (msg, meta) => emit('error', scope, transform(msg), meta),
+    with: (prefix) => {
+      const getPrefix = typeof prefix === 'function' ? prefix : () => prefix;
+      return subLogger(scope, (msg) => transform(`[${getPrefix()}] ${msg}`));
+    },
   };
 }
 
-// Compatibility default — `log.knowledge.with('preprocess')`, `log.tasks.with('mutate')`, etc.
+export function createLogger(scope: string): Logger {
+  return subLogger(scope, (msg) => msg);
+}
+
+// Pre-built per-module loggers. One scope per module; sub-sources attach via
+// `.with('sub')`. Top-level `log.info/warn/error` map to the system scope so
+// existing call sites (server.ts boot, tool handlers) keep working.
+const system = createLogger('🤖 system');
+
 export const log = {
-  info: (msg: string, extra?: unknown) => emit('INFO', 'kevin', msg, extra),
-  warn: (msg: string, extra?: unknown) => emit('WARN', 'kevin', msg, extra),
-  error: (msg: string, extra?: unknown) => emit('ERROR', 'kevin', msg, extra),
-  knowledge: createLogger('knowledge'),
-  tasks: createLogger('tasks'),
-  session: createLogger('session'),
-  mcp: createLogger('mcp')
+  debug: system.debug,
+  info: system.info,
+  warn: system.warn,
+  error: system.error,
+  with: system.with,
+  system,
+  knowledge: createLogger('📚 knowledge'),
+  tasks: createLogger('📋 tasks'),
+  session: createLogger('🪝 session'),
+  tools: createLogger('🔧 tools'),
+  mcp: createLogger('🛰 mcp'),
 };

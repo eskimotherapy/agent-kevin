@@ -133,6 +133,12 @@ async function run(): Promise<void> {
     process.exit(group ? 0 : 1);
   }
 
+  // One info line per CLI invocation so file logs reveal user-invoked vs
+  // MCP-invoked traffic. Lazy-imported because @/shared/log resolves KEVIN_HOME
+  // and we want loadProjectEnv() to have run first.
+  const { log } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/shared/log'));
+  log.with('cli').info(`${group}${command ? ` ${command}` : ''}${args.length ? ` ${args.join(' ')}` : ''}`);
+
   if (group === 'ping') {
     const { FOLDERS, TIMEZONE } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/config'));
     console.log(

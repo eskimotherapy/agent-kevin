@@ -7,8 +7,11 @@
  * calls the LLM — pure I/O and state.
  */
 import { getStatus, markComplete, pickNext } from '@/knowledge/compile';
+import { log as baseLog } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { z } from 'zod';
+
+const log = baseLog.knowledge.with('compile');
 
 export const tools: ToolDef[] = [
   defineTool({
@@ -24,6 +27,8 @@ export const tools: ToolDef[] = [
     inputSchema: {},
     handler: async () => {
       const item = await pickNext();
+      if (item) log.info(`next → ${item.itemId} (${item.kind})`);
+      else log.info('next → done (nothing pending)');
       return item ? { done: false, item } : { done: true, item: null };
     }
   }),
@@ -33,6 +38,10 @@ export const tools: ToolDef[] = [
     inputSchema: {
       itemId: z.string().describe('Opaque ID returned by compile_next, e.g. "session:2026-05-16.md:0"')
     },
-    handler: async ({ itemId }) => markComplete(itemId)
+    handler: async ({ itemId }) => {
+      const result = await markComplete(itemId);
+      log.info(`write ← ${itemId}`);
+      return result;
+    }
   })
 ];

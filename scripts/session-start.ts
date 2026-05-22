@@ -14,6 +14,9 @@
 import { isInitialized } from '../mcp-server/src/config';
 import { assembleContext } from '../mcp-server/src/context';
 import { AGENT_KEVIN_BANNER } from '../mcp-server/src/shared/banner';
+import { log as baseLog } from '../mcp-server/src/shared/log';
+
+const log = baseLog.session.with('start');
 
 interface HookOutput {
   systemMessage: string;
@@ -45,13 +48,41 @@ function preInitOutput(): HookOutput {
   };
 }
 
-async function postInitOutput(): Promise<HookOutput> {
-  const { context, banner } = await assembleContext();
+interface PostInit {
+  output: HookOutput;
+  banner: string;
+  hasIssues: boolean;
+}
+
+async function postInitOutput(): Promise<PostInit> {
+  const { context, banner, hasIssues } = await assembleContext();
   return {
-    systemMessage: '\n' + banner,
-    hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context },
+    output: {
+      systemMessage: '\n' + banner,
+      hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: context },
+    },
+    banner,
+    hasIssues,
   };
 }
 
-const output = isInitialized() ? await postInitOutput() : preInitOutput();
-process.stdout.write(JSON.stringify(output));
+try {
+  const initialized = isInitialized();
+  if (initialized) {
+    const { output, banner, hasIssues } = await postInitOutput();
+    // Mirror what the operator sees in their terminal into the log file so
+    // failures (missing knowledge dir, git repo unavailable, oversized
+    // context) are diagnosable after the fact.
+    const emit = hasIssues ? log.warn.bind(log) : log.info.bind(log);
+    emit('hook fired (post-init)\n' + banner);
+    process.stdout.write(JSON.stringify(output));
+  } else {
+    log.info('hook fired (pre-init)');
+    process.stdout.write(JSON.stringify(preInitOutput()));
+  }
+} catch (err) {
+  log.error('hook failed', err);
+  // Still emit a minimal valid payload so Claude Code doesn't choke.
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: '' } }));
+  process.exit(1);
+}

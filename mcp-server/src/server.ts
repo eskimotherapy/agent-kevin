@@ -42,14 +42,15 @@ const TOOLS: ToolDef[] = [
 const server = new McpServer({ name: 'kevin', version: '0.1.0' });
 
 for (const tool of TOOLS) {
+  const toolLog = log.with(() => `tool:${tool.name}`);
   server.registerTool(tool.name, { description: tool.description, inputSchema: tool.inputSchema }, async (args) => {
+    toolLog.debug('dispatch', args);
     try {
       const result = await tool.handler(args);
-      const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
-      return { content: [{ type: 'text', text }] };
+      return { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      log.error(`tool ${tool.name} failed: ${message}`);
+      toolLog.error(`failed: ${message}`);
       return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
     }
   });
