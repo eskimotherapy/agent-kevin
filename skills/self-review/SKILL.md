@@ -30,7 +30,7 @@ Don't stop at the synth — pull raw evidence from every surface where correctio
 4. Recent task threads — scan tasks updated in the last 7 days. Search `[!quote]` blocks for the same correction phrases. Threads are where in-flight corrections land.
 5. `git log --format='%h %ai %s' -50` in `<HOME>/identity/` and the plugin repo's `skills/` — commits matching prior cycle dates are addressed work. Note the dates so you can compute "violations after fix".
 6. `<HOME>/knowledge/concepts/` — list every article. This is where *implemented and distilled* decisions live. A theme that maps to an existing concept article means the *thinking* landed but the *behavior* didn't — different fix shape (enforcement gap, not knowledge gap).
-7. `.claude/plans/` — in-flight, unimplemented plans only. Use to (a) de-dup if a Track B proposal already exists, (b) age-sweep — plans >14 days old without follow-through are stuck.
+7. `<HOME>/reports/plans/` — in-flight, unimplemented plans only. Use to (a) de-dup if a Track B proposal already exists, (b) age-sweep — plans >14 days old without follow-through are stuck.
 8. The plugin's `skills/` directory — what's installed. Reference for Track C — don't propose installing or creating something already covered.
 
 ### 2. Cluster, count, classify
@@ -103,13 +103,13 @@ Stay surgical. Small targeted changes beat sweeping rewrites.
 
 ### 4. Aging plan sweep
 
-For each `.claude/plans/*.md` with mtime >14 days, check whether the work landed. If it's stuck, propose: **re-surface**, **downgrade**, or **close**.
+For each `<HOME>/reports/plans/*.md` with mtime >14 days, check whether the work landed. If it's stuck, propose: **re-surface**, **downgrade**, or **close**.
 
 ### 5. Discuss, then edit or plan
 
 Walk through proposals one at a time. Your call on each:
 - **Apply** (Track A) → Edit tool, now.
-- **Write plan** (Track B) → create/update `.claude/plans/`. No code edits.
+- **Write plan** (Track B) → create/update `<HOME>/reports/plans/`. No code edits.
 - **Install / Create** (Track C) → command or `skill-creator`.
 - **Skip** → drop it.
 - **Revise** → incorporate redirect, re-propose.

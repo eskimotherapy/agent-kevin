@@ -268,6 +268,7 @@ graph LR
     NEXT["next session"]
     REV["self-review skill"]
     EDIT["edits to SOUL,<br/>CLAUDE.md, skills"]
+    PLANS["plans to<br/>reports/plans/"]
 
     CAP --> FB
     FB --> SYN
@@ -275,11 +276,22 @@ graph LR
     LN -.->|loaded every session| NEXT
     FB --> REV
     REV --> EDIT
+    REV --> PLANS
 ```
 
 Every time you correct Kevin mid-conversation ("don't do that", "actually, that's wrong"), the SessionEnd hook captures the correction into `knowledge/raw/user/feedback.md`, append-only, durable. The next `knowledge-compile` run synthesises all feedback into a `## Learnings` block in `knowledge/memory/index.md`, which loads as static memory at the start of every future session. Kevin sees his own past misses while he works and self-corrects in real time.
 
-When you have ten minutes, run `/agent-kevin:self-review`. Kevin reads the accumulated feedback + `## Learnings`, proposes 1-3 targeted edits to his SOUL or to specific SKILL.md files, and lets you pick what to change. Code-change proposals get written to `<HOME>/.claude/plans/` for you to implement separately, never auto-applied.
+When you have ten minutes, run `/agent-kevin:self-review`. It's not a quick pass over the synth — Kevin casts a wide signal net across **eight sources**: the `## Learnings` synth, the full `feedback.md`, the last 7 days of session logs and task threads, git history (to find prior-fix commits), concept articles, in-flight plans, and installed skills. Grep is for both correction *and* confirmation phrases — wins matter too, they validate non-obvious choices.
+
+Each theme gets classified as **missing**, **buried**, **present-but-violated**, or **present-and-working** — the whole point is catching rules that landed but didn't stick. Themes rank by `severity × instance count × cycle count`; anything with fewer than two independent signals or `present-and-working` gets dropped. If nothing clears the bar, Kevin says so and stops.
+
+Proposals come in three tracks:
+
+- **Track A — prompt/skill edits.** Applied synchronously in-session, you pick which to accept. Surface choice is deliberate: identity → SOUL, procedural → CLAUDE.md, skill-specific → that skill's body.
+- **Track B — code-change plans.** Written to `<HOME>/reports/plans/` via the `report_write` MCP tool, never auto-applied. You implement them in a separate session.
+- **Track C — skill install or create.** Only when the signal is a recurring multi-step procedure. Requires explicit in-session approval.
+
+Kevin also sweeps `<HOME>/reports/plans/` for aging proposals (>14 days, no follow-through) and proposes re-surface / downgrade / close on each one. A quality gate runs before any proposal lands — every target file actually read (not paraphrased), specific evidence (timestamps, quotes, file:line), coverage audit done, and for any pre-existing rule: violations counted *after* it was introduced.
 
 **Three stages, loosely coupled.** Capture is automatic. Compile is on-demand. Review is manual. No ceremony.
 
