@@ -612,8 +612,59 @@ The Step 8 pack walks handle non-secret config (permission grants, Google OAuth 
 
 **Write `knowledge/index.md` — preservation-aware.** Operators add catalog bullets over time (linking to concepts they've authored manually).
 
-- File missing → write the master-index scaffold with empty placeholder sections.
+- File missing → write the scaffold below.
 - File exists with any non-whitespace body content → skip the write entirely.
+
+Scaffold:
+
+```markdown
+---
+title: Knowledge — Master Index
+created: <YYYY-MM-DD>
+updated: <YYYY-MM-DD>
+---
+
+# Knowledge
+
+Master catalog of Kevin's compiled knowledge. Kevin keeps this current via `/agent-kevin:knowledge-compile`.
+
+## User (<NAME>)
+
+Long-form, evolving knowledge about the operator. Five facets, each updated as compile reveals durable facts.
+
+- [[user/profile]] — bio, identity, family, faith, location, languages, calling hours
+- [[user/skills]] — technical stack and domain expertise
+- [[user/preferences]] — communication style, workflow rules, coding style, ethical guardrails
+- [[user/career]] — work history, employers, roles, equity grants, education, certifications
+- [[user/interests]] — vision projects, startup ideas, signal topics
+
+## Concepts (cross-cutting patterns)
+
+_(empty — compiled articles land here as `concepts/<slug>.md` after `/agent-kevin:knowledge-compile` runs)_
+
+## Memory
+
+- [[memory/index]] — hot context loaded every session: daily-memory manifest, active threads, recent decisions, pending items, key context, learnings
+
+## Reports (transient skill outputs — 3rd-degree context)
+
+- [reports/index](../reports/index.md) — dated audit trail of all skill outputs (briefings, plans, etc.). Read-only network of links; not absorbed into memory or concepts. Promote anything durable to `raw/specs/` and compile. File is auto-created by `report_write` on the first reporting-skill call.
+
+## Projects
+
+Operational work units. Each has its own README, tasks/, and tracker. Project READMEs live outside the wiki and use markdown links (not wikilinks).
+
+Cross-project task dashboard: [projects/TASKS.md](../projects/TASKS.md).
+
+## Raw (inputs to compile)
+
+- `raw/sessions/YYYY-MM-DD.md` — auto-captured session transcripts (single file per day, no suffixes)
+- `raw/user/feedback.md` — append-only correction + reaction log; compiled into [[memory/index]] `## Learnings`
+- `raw/specs/` — drop design docs here for compile to distill into concepts
+- `raw/archive/specs/` — compiled specs land here post-archive
+```
+
+Substitute `<NAME>` with the operator's name from Step 4a and `<YYYY-MM-DD>` with today's date. The Reports link points at a path that doesn't exist until `report_write` runs once — Obsidian renders the unresolved link gracefully, and the file materialises on first use.
 
 **Write `knowledge/memory/index.md` — strict preservation.** This is the highest-stakes file in the tree — months of `/agent-kevin:knowledge-compile` output (Active Threads, Recent Decisions, Learnings) live here.
 
