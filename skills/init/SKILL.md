@@ -764,6 +764,14 @@ Blank line, then the **Next** heading (same style as Ready), then the relaunch p
 >
 > Didn't tick a pack at Step 8? Run `/agent-kevin:configure-skills` later — it adds permissions + plants the matching placeholder slots, then you fill via editor. Tools whose key is empty stay loaded but return "missing env var" if called — fill the value any time later and the next session picks it up.
 >
+> **Set `KEVIN_HOME` if you launch Claude from anywhere else.** Kevin's MCP server resolves all paths from `cwd` by default — fine when you launch from `<HOME_DIR>` itself, but it breaks silently if you launch from a subdir of the home, a sibling repo, or set up the user-level session-capture hook from the README. If you might launch from elsewhere, add to `~/.claude/settings.json` `env`:
+>
+> ```json
+> { "env": { "KEVIN_HOME": "<HOME_DIR>" } }
+> ```
+>
+> Skip if you'll always `cd <HOME_DIR> && claude`.
+>
 > **One-time MCP-server install.** Kevin's MCP server runs from the plugin directory and needs its node_modules. From a separate terminal (or after `/exit`), run:
 >
 > ```bash

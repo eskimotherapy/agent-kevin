@@ -539,10 +539,16 @@ Note: `bin/kevin` invokes the MCP server logic locally without going through Cla
 
 | Env var | Purpose | Default |
 |---|---|---|
-| `KEVIN_HOME` | Override Kevin's data dir | current working directory at launch |
+| `KEVIN_HOME` | Path to your agent home. **Required** when launching `claude` from anywhere other than the agent home itself (subdirs, other repos, the user-level capture hook). | current working directory at launch |
 | `KEVIN_TIMEZONE` | IANA timezone for date formatting | system timezone |
 | `KEVIN_KNOWLEDGE` | Override knowledge dir | `$KEVIN_HOME/knowledge` |
 | `KEVIN_PROJECTS` | Override projects dir | `$KEVIN_HOME/projects` |
+| `KEVIN_REPORTS` | Override reports dir | `$KEVIN_HOME/reports` |
+| `KEVIN_GIT_REPOS` | Comma-separated extra git repo paths (`~`-expanded) surfaced in the SessionStart context block alongside the knowledge repo | _none_ |
+| `KEVIN_LOG_LEVEL` | Log level: `debug` · `info` · `warn` · `error`. Falls back to `LOG_LEVEL`. | `info` |
+| `KEVIN_LOG_FILE` | Override log file path. Set to `off` to disable file output. | `$KEVIN_HOME/.kevin/logs/app.log` |
+
+**On `KEVIN_HOME`.** When you launch `claude` from inside your agent home, the cwd-fallback works and you don't need to set anything. When `cwd` is somewhere else — a subdir of home, a sibling repo, or the user-level session-capture hook firing from a random project — the MCP server resolves paths relative to `cwd` instead, and writes land in the wrong place (or the `isInitialized()` guard fires and the hook silently no-ops). If you ever launch Claude Code from outside the home, set `KEVIN_HOME` in your shell rc or in `~/.claude/settings.json` `env`.
 
 `KEVIN_KNOWLEDGE` and `KEVIN_PROJECTS` let you put those directories anywhere (e.g. iCloud, an external drive, a separate git repo). The init wizard offers this during scaffold and, if the chosen path is **outside the agent home**, automatically appends `permissions.allow` (and `sandbox.filesystem.allowWrite` where supported) entries to `<HOME>/.claude/settings.json` so Claude Code can read/write there without prompting. If you set these env vars after init, edit `settings.json` yourself.
 
@@ -591,6 +597,14 @@ By default Kevin only captures sessions when you launch `claude` from inside you
 **Why this is useful.** Kevin's knowledge compounds from raw session inputs. The richer the input stream, the richer the wiki. A coding session in another repo that mentions a new library, a debugging conversation that surfaces a workflow rule, a one-off chat that captures a decision — all of those would normally be lost. With capture-everywhere wired in, they all land in `<HOME>/knowledge/raw/sessions/YYYY-MM-DD.md` and feed the next `/agent-kevin:knowledge-compile` run.
 
 **How it stays safe.** The capture script's `isInitialized()` guard checks for `<KEVIN_HOME>/SOUL.md` before writing — if your `KEVIN_HOME` env var is misconfigured or points at a non-Kevin directory, the script logs a skip and exits. It won't pollute random dirs.
+
+**Excluding specific directories.** Pass one or more `--exclude PATH` (or `--exclude=PATH`) flags after the subcommand to suppress capture when `claude` is launched from those paths or any of their children. Paths are tilde-expanded and resolved to absolutes; matching uses `/`-boundary prefixes (so `~/Developer/foo` excludes `~/Developer/foo/bar` but not `~/Developer/foobar`). Useful for sibling agents (another `SOUL.md`-rooted home), Ring-1 repos that shouldn't bleed into this knowledge base, or noisy throwaway dirs:
+
+```json
+"command": "bun /absolute/path/to/agent-kevin/scripts/session-capture.ts session-end --exclude ~/Developer/Walapay --exclude ~/scratch"
+```
+
+Repeat the flag in both the `SessionEnd` and `PreCompact` hook entries. The plugin's own SessionEnd hook (when you launch from the agent home itself) already takes precedence via the `pluginEnabledInCwd()` check, so excludes only need to cover *other* agent homes and dirs you actively want to skip.
 
 **Three things to choose:**
 
