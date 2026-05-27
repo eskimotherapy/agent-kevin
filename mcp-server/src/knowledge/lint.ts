@@ -24,6 +24,7 @@ import { loadState, saveState } from './state';
 import {
   extractWikilinks,
   listRawFiles,
+  loadTaskTargets,
   readAllWikiContent,
   readWikiIndex,
   stripFrontmatter as stripFrontmatterShared,
@@ -67,7 +68,8 @@ async function checkBrokenLinks(articles: Map<string, string>): Promise<LintIssu
   const checks = [...articles].flatMap(([relPath, content]) =>
     extractWikilinks(content).map((link) => ({ relPath, link }))
   );
-  const results = await Promise.all(checks.map(async ({ relPath, link }) => ({ relPath, link, exists: await wikiArticleExists(link) })));
+  const taskTargets = await loadTaskTargets();
+  const results = await Promise.all(checks.map(async ({ relPath, link }) => ({ relPath, link, exists: await wikiArticleExists(link, taskTargets) })));
   return results
     .filter(({ exists }) => !exists)
     .map(({ relPath, link }) => ({

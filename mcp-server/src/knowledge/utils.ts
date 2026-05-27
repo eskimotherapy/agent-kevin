@@ -61,13 +61,73 @@ export function extractWikilinks(content: string): string[] {
   return [...stripped.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].split(/[|#]/)[0]);
 }
 
-export async function wikiArticleExists(link: string): Promise<boolean> {
+/**
+ * Resolvable task identifiers — full slugs (`en-027-provider-error-...`) plus
+ * bare IDs (`en-027`) — collected from every `projects/<proj>/tasks/` directory.
+ * Not cached: the MCP server is long-lived and tasks are created mid-session, so
+ * `checkBrokenLinks` loads this once per run and passes it down.
+ */
+export async function loadTaskTargets(): Promise<Set<string>> {
+  const targets = new Set<string>();
+  let projectDirs: string[];
   try {
-    await stat(resolve(FOLDERS.KNOWLEDGE, link + '.md'));
-    return true;
+    projectDirs = await readdir(FOLDERS.PROJECTS);
   } catch {
-    return false;
+    return targets; // No projects directory — task links simply won't resolve.
   }
+  await Promise.all(
+    projectDirs.map(async (projectDir) => {
+      let files: string[];
+      try {
+        files = await readdir(resolve(FOLDERS.PROJECTS, projectDir, 'tasks'));
+      } catch {
+        return; // Not a project dir, or it has no tasks/ subdir.
+      }
+      for (const file of files) {
+        if (!file.endsWith('.md')) continue;
+        const slug = file.replace(/\.md$/, '');
+        targets.add(slug);
+        const bareId = slug.match(/^([a-z]{2}-\d{3})/i)?.[1];
+        if (bareId) targets.add(bareId.toLowerCase());
+      }
+    })
+  );
+  return targets;
+}
+
+/**
+ * A wikilink target is valid if it resolves to any of:
+ *  - a knowledge article by direct path (`concepts/foo`, `memory/2026-...`)
+ *  - a bare slug in a known knowledge subdir (`service-decomposition` → concepts/)
+ *  - a HOME-root doc (`USER`, `SOUL`, `IDENTITY`, `CLAUDE`; leading slash + `.md` tolerated)
+ *  - a task file under `projects/<proj>/tasks/` by full slug or bare ID (`en-027`)
+ *
+ * The wiki spans more than `knowledge/` — Obsidian's vault root is HOME, so links
+ * legitimately cross into HOME-root docs and the task tree. Resolving only within
+ * `knowledge/` produced false "broken link" errors that fought with Obsidian's
+ * `alwaysUpdateLinks` normalisation.
+ *
+ * `taskTargets` is loaded once per lint run and passed in to avoid re-scanning the
+ * project tree per link; standalone callers can omit it for a fresh one-off scan.
+ */
+export async function wikiArticleExists(link: string, taskTargets?: Set<string>): Promise<boolean> {
+  const normalized = link.replace(/^\/+/, '').replace(/\.md$/i, '');
+  if (!normalized) return false;
+
+  const fileCandidates = [
+    resolve(FOLDERS.KNOWLEDGE, normalized + '.md'),
+    resolve(FOLDERS.CONCEPTS, normalized + '.md'),
+    resolve(FOLDERS.USER_KNOWLEDGE, normalized + '.md'),
+    resolve(FOLDERS.MEMORY, normalized + '.md'),
+    resolve(FOLDERS.HOME, normalized + '.md')
+  ];
+  for (const candidate of fileCandidates) {
+    const found = await stat(candidate).then(() => true).catch(() => false);
+    if (found) return true;
+  }
+
+  const tasks = taskTargets ?? (await loadTaskTargets());
+  return tasks.has(normalized) || tasks.has(normalized.toLowerCase());
 }
 
 // ── Wiki reading ─────────────────────────────────────────────────────
