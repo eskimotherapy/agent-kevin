@@ -48,11 +48,11 @@ const PERMANENT_DIRS = ['user/', 'concepts/'] as const;
 const MEMORY_INDEX_PATH = 'memory/index.md';
 const MEMORY_TOTAL_WARN_BYTES = 30_000;
 const MEMORY_TOTAL_ERROR_BYTES = 40_000;
-const MEMORY_SECTION_BUDGETS: Array<{ name: string; maxBytes: number; maxBullets: number; maxBulletChars: number }> = [
+const MEMORY_SECTION_BUDGETS = [
   { name: 'Active Threads', maxBytes: 8_000, maxBullets: 10, maxBulletChars: 250 },
   { name: 'Recent Decisions', maxBytes: 10_000, maxBullets: 25, maxBulletChars: 250 },
-  { name: 'Pending', maxBytes: 2_000, maxBullets: Number.POSITIVE_INFINITY, maxBulletChars: Number.POSITIVE_INFINITY }
-];
+  { name: 'Pending', maxBytes: 2_000 }
+] satisfies ReadonlyArray<{ name: string; maxBytes: number; maxBullets?: number; maxBulletChars?: number }>;
 
 interface LintIssue {
   check: string;
@@ -252,23 +252,16 @@ async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIss
   if (!content) return [];
 
   const issues: LintIssue[] = [];
+  const push = (severity: 'error' | 'warning', message: string) =>
+    issues.push({ check: 'Memory budget', severity, message, file: MEMORY_INDEX_PATH });
+
   const totalBytes = Buffer.byteLength(content, 'utf-8');
   const totalKB = (totalBytes / 1024).toFixed(1);
 
   if (totalBytes > MEMORY_TOTAL_ERROR_BYTES) {
-    issues.push({
-      check: 'Memory budget',
-      severity: 'error',
-      message: `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB Claude Code warning threshold (loads into every session). Rewrite against per-section budgets in mcp-server/src/knowledge/compile.md.`,
-      file: MEMORY_INDEX_PATH
-    });
+    push('error', `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB Claude Code warning threshold (loads into every session). Rewrite against per-section budgets in mcp-server/src/knowledge/compile.md.`);
   } else if (totalBytes > MEMORY_TOTAL_WARN_BYTES) {
-    issues.push({
-      check: 'Memory budget',
-      severity: 'warning',
-      message: `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_WARN_BYTES / 1000}KB hard budget (warning fires at ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB). Compress at next compile.`,
-      file: MEMORY_INDEX_PATH
-    });
+    push('warning', `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_WARN_BYTES / 1000}KB hard budget (warning fires at ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB). Compress at next compile.`);
   }
 
   const sections = parseMemorySections(content);
@@ -279,31 +272,18 @@ async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIss
     const bullets = extractTopLevelBullets(section);
 
     if (bytes > cfg.maxBytes) {
-      issues.push({
-        check: 'Memory budget',
-        severity: 'warning',
-        message: `${MEMORY_INDEX_PATH} § ${cfg.name} is ${(bytes / 1024).toFixed(1)}KB (budget ${cfg.maxBytes / 1000}KB). Demote older entries or collapse multi-sentence bullets to pointers.`,
-        file: MEMORY_INDEX_PATH
-      });
+      push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} is ${(bytes / 1024).toFixed(1)}KB (budget ${cfg.maxBytes / 1000}KB). Demote older entries or collapse multi-sentence bullets to pointers.`);
     }
-    if (Number.isFinite(cfg.maxBullets) && bullets.length > cfg.maxBullets) {
-      issues.push({
-        check: 'Memory budget',
-        severity: 'warning',
-        message: `${MEMORY_INDEX_PATH} § ${cfg.name} has ${bullets.length} bullets (budget ${cfg.maxBullets}). Demote lowest-priority / least-recently-touched ones.`,
-        file: MEMORY_INDEX_PATH
-      });
+    const maxBullets = cfg.maxBullets;
+    if (maxBullets !== undefined && bullets.length > maxBullets) {
+      push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} has ${bullets.length} bullets (budget ${maxBullets}). Demote lowest-priority / least-recently-touched ones.`);
     }
-    if (Number.isFinite(cfg.maxBulletChars)) {
-      const oversized = bullets.filter((b) => b.length > cfg.maxBulletChars);
+    const maxBulletChars = cfg.maxBulletChars;
+    if (maxBulletChars !== undefined) {
+      const oversized = bullets.filter((b) => b.length > maxBulletChars);
       if (oversized.length > 0) {
         const longest = Math.max(...oversized.map((b) => b.length));
-        issues.push({
-          check: 'Memory budget',
-          severity: 'warning',
-          message: `${MEMORY_INDEX_PATH} § ${cfg.name} has ${oversized.length} bullet(s) over ${cfg.maxBulletChars} chars (longest: ${longest}). Each bullet is a pointer, not a recap — push detail into the linked task / daily memory.`,
-          file: MEMORY_INDEX_PATH
-        });
+        push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} has ${oversized.length} bullet(s) over ${maxBulletChars} chars (longest: ${longest}). Each bullet is a pointer, not a recap — push detail into the linked task / daily memory.`);
       }
     }
   }
@@ -318,16 +298,16 @@ async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIss
  * normalised by stripping any trailing parenthetical (e.g.
  * `## Recent Decisions (Last 2 Weeks)` → `Recent Decisions`).
  */
-export function parseMemorySections(content: string): Map<string, string> {
+function parseMemorySections(content: string): Map<string, string> {
   const sections = new Map<string, string>();
   let current: string | null = null;
   let buffer: string[] = [];
 
   for (const line of content.split('\n')) {
-    const match = line.match(/^##\s+(.+?)(?:\s+\(.+\))?\s*$/);
+    const match = line.match(/^##\s+(.+)$/);
     if (match) {
       if (current !== null) sections.set(current, buffer.join('\n'));
-      current = match[1].trim();
+      current = match[1].replace(/\s*\(.+\)\s*$/, '').trim();
       buffer = [];
     } else if (current !== null) {
       buffer.push(line);
@@ -343,7 +323,7 @@ export function parseMemorySections(content: string): Map<string, string> {
  * current bullet so multi-paragraph entries are counted as a single
  * oversized bullet rather than many small ones.
  */
-export function extractTopLevelBullets(section: string): string[] {
+function extractTopLevelBullets(section: string): string[] {
   const bullets: string[] = [];
   let current: string | null = null;
   for (const line of section.split('\n')) {
