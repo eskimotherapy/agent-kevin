@@ -256,11 +256,15 @@ Default destination is `knowledge/raw/inbox/<YYYY-MM-DD-HHMM>-<slug>.md`. `--kin
 
 ```mermaid
 flowchart TD
+    SES[/raw/sessions/<br/>YYYY-MM-DD.md/] -.pending.-> C1
+    INB[/raw/inbox/<br/>captured items/] -.pending.-> C1
+    FB[/raw/user/<br/>feedback.md/] -.pending.-> C1
+
     START([/agent-kevin:sync]) --> C1[1\. Compile pending raw inputs]
     C1 --> C2[2\. Lint + auto-fix]
     C2 --> C3[3\. Prune transient memory]
     C3 --> C4[4\. Rewrite stale wikilinks]
-    C4 --> C5[5\. Flywheel: advance every active project]
+    C4 --> C5[5\. Flywheel: advance · **archive** · **persist**]
     C5 --> C6[6\. Refresh task dashboard]
     C6 --> C7[7\. Scan for overdue/stale]
     C7 --> C8[8\. Read dust-settled state]
@@ -269,10 +273,14 @@ flowchart TD
     C1 -.synthesis in your TUI turn.-> WIKI[(knowledge/<br/>user · concepts · memory)]
     C2 -.errors + warnings.-> LINT[/.kevin/lint.md/]
     C5 -.advance · update · close.-> TASKMUT[(task frontmatter<br/>+ threads)]
+    C5 -.unconditional sweep.-> ARCHIVE[(projects/&lt;slug&gt;/<br/>tasks/archive/)]
+    C5 -.unconditional snapshot.-> FLYREP[/reports/briefings/<br/>flywheel/&lt;slug&gt;.md/]
     C6 -.from frontmatter.-> TASKS[/projects/TASKS.md/]
 ```
 
 The dependency order is the point: compile feeds the wiki state that lint operates on; lint's auto-fix touches the same articles the dashboard's task-link rewriter needs to be clean. Flywheel runs *after* the wiki is clean (so it reads a current memory index) and *before* the dashboard refresh (so the dashboard reflects post-flywheel task state). Scan reads the just-rebuilt dashboard. Running steps out of order makes you re-reconcile.
+
+Two sub-steps of flywheel run **every sync, unconditionally**: the archive sweep (moves `done`/`cancelled` task files into `tasks/archive/` so the active dir stays scannable) and the snapshot persist (`report_write` to `reports/briefings/flywheel/` so the next morning brief can pick up the cross-session trail). Advance · update · close · concepts · decisions fire only when there's real work to do.
 
 The status block reads from the **dust-settled artifacts** (`projects/TASKS.md`, `.kevin/lint.md`, `knowledge/memory/index.md`) — not from per-tool return values — so the summary reflects what's actually on disk after every mutation has landed. See [`skills/sync/SKILL.md`](skills/sync/SKILL.md) for the protocol.
 

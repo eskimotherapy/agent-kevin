@@ -76,10 +76,12 @@ Quick form for one-shot execution:
 1. Read `<HOME>/knowledge/memory/index.md` `## Active Threads` for current portfolio state.
 2. For each active project, `mcp__plugin_agent-kevin_kevin__task_query` with `{ project, status: "active" }` and `{ project, status: "open" }`.
 3. For each task: **advance** (concrete work), **update** (`task_thread` with new info, `task_update` for status/priority changes), **close** (`task_close`), or **defer** (set blocked + reason).
-4. If cross-cutting patterns emerge across ≥2 projects, draft a `<HOME>/knowledge/concepts/<slug>.md` and add a bullet to `knowledge/index.md` `## Concepts`.
-5. Log architectural decisions to `<HOME>/knowledge/memory/index.md` `## Recent Decisions`.
+4. **Archive sweep — unconditional.** Move every `status: done` / `status: cancelled` task file from `projects/<slug>/tasks/` into `projects/<slug>/tasks/archive/`. This is a deterministic janitor that runs every sync, independent of whether step 3 made any mutations. Discover candidates with `grep -l '^status: \(done\|cancelled\)' projects/*/tasks/*.md`; for each match, `mkdir -p` the project's archive dir and `mv` the file in. Don't touch files already under `archive/`.
+5. If cross-cutting patterns emerge across ≥2 projects, draft a `<HOME>/knowledge/concepts/<slug>.md` and add a bullet to `knowledge/index.md` `## Concepts`.
+6. Log architectural decisions to `<HOME>/knowledge/memory/index.md` `## Recent Decisions`.
+7. **Persist flywheel snapshot.** Call `mcp__plugin_agent-kevin_kevin__report_write` with `category: 'briefings'`, `slug: 'flywheel'`, `skill: 'flywheel'`, a one-line title, a body covering projects touched + tasks moved + concepts drafted, and `status: 'findings'` if anything moved (closes, updates, threads, concepts, decisions) or `status: 'clean'` if only the archive sweep ran. The morning brief reads these to pick up the trail across sessions.
 
-Bound the breadth: touch every active project, don't sink the whole session into one. Skip the wrap summary — that lands in step 8 below as part of the sync output.
+Bound the breadth: touch every active project, don't sink the whole session into one. The archive sweep (step 4) is the one mechanical action that always runs — closing tasks throughout the week without archiving lets `Recently Closed` accumulate and clutters the active dirs. Steps 4 and 7 are unconditional; everything else fires only when there's real work to do. Skip the in-skill wrap summary — that lands in step 8 below as part of the sync output. Flywheel's orient sub-steps (dashboard refresh, TASKS.md read, task_scan) are intentionally fanned out across sync's steps 6-8 so they reflect post-flywheel state, not pre-flywheel.
 
 ### 6. Refresh task dashboard
 
