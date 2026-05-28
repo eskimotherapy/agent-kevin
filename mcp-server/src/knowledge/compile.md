@@ -53,6 +53,14 @@ If the headline summary in `USER.md` itself needs an update (e.g. new role, new 
 
 **Hard budget: total file ≤ 30KB.** Claude Code warns at 40KB and that warning hurts every future session. Bullets are *bullets*, not paragraphs — each one is a pointer with enough context to recognise what it's about, not a self-contained recap. Detail lives in the linked task, daily memory, or concept article; the index points to detail, it doesn't carry it.
 
+**PRE-FLIGHT (do this BEFORE adding anything new):**
+
+1. `Read` the current `{{memoryIndex}}` and measure: total bytes, bullet count per section, longest bullet per section.
+2. If any of these are over budget — total > 30KB, Active Threads > 10 bullets or any bullet > 250 chars, Recent Decisions > 25 bullets or > 14 days old or any bullet not single-line ≤ 250 chars, Pending > 2KB — **fix the existing file first**, in the same edit pass that adds today's content. Compression options, in order: (a) collapse multi-sentence bullets to a single pointer line, (b) move detail into the linked task's `## Thread` or today's daily memory, (c) demote / drop the lowest-value entries, (d) graduate a recurring pattern into `concepts/<slug>.md` and replace the bullet with a wikilink, (e) archive decisions older than 2 weeks to `{{memoryDir}}/archive/decisions-YYYY-MM.md`.
+3. Only AFTER the existing file is within budget, add today's new bullets.
+
+Compile is the *only* pass that touches this file — if you append without enforcing, the warning will fire on the next session start. Treat the budgets as hard constraints, not aspirations.
+
 Per-section budgets:
 
 - **Active Threads** (≤ 8KB, ≤ 10 bullets, **≤ 250 chars per bullet**): only what's being worked on RIGHT NOW. Each bullet: thread name + task wikilink + the *one* current sentence (next action, blocker, or live state). Push file paths, line numbers, pending sub-items, and historical detail into the linked task's `## Thread` or into daily memory — **do not inline them here**. If a thread needs more than 250 chars to make sense, that's a signal the task body is under-maintained.

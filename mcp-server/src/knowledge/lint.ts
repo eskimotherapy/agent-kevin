@@ -39,6 +39,21 @@ const SPARSE_SUGGEST_THRESHOLD = 200;
 
 const PERMANENT_DIRS = ['user/', 'concepts/'] as const;
 
+// Memory index budgets — mirror the per-section limits documented in
+// `compile.md`. The 40KB total is Claude Code's session-start warning
+// threshold; the 30KB hard budget gives compile a margin to absorb growth
+// between full rewrites. Per-section caps are advisory but every bullet
+// over the char limit signals the index is carrying detail that should
+// live in a linked task / daily memory / concept article instead.
+const MEMORY_INDEX_PATH = 'memory/index.md';
+const MEMORY_TOTAL_WARN_BYTES = 30_000;
+const MEMORY_TOTAL_ERROR_BYTES = 40_000;
+const MEMORY_SECTION_BUDGETS: Array<{ name: string; maxBytes: number; maxBullets: number; maxBulletChars: number }> = [
+  { name: 'Active Threads', maxBytes: 8_000, maxBullets: 10, maxBulletChars: 250 },
+  { name: 'Recent Decisions', maxBytes: 10_000, maxBullets: 25, maxBulletChars: 250 },
+  { name: 'Pending', maxBytes: 2_000, maxBullets: Number.POSITIVE_INFINITY, maxBulletChars: Number.POSITIVE_INFINITY }
+];
+
 interface LintIssue {
   check: string;
   severity: 'error' | 'warning' | 'suggestion';
@@ -225,7 +240,129 @@ async function checkInvalidFrontmatter(articles: Map<string, string>): Promise<L
   return issues;
 }
 
+/**
+ * Memory index budget — `memory/index.md` is loaded into every Claude
+ * Code session via `@-import`, so growth there hits every future
+ * conversation. Compile is supposed to enforce the budgets editorially,
+ * but the LLM can drift toward appending; this check makes drift
+ * deterministically visible.
+ */
+async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIssue[]> {
+  const content = articles.get(MEMORY_INDEX_PATH);
+  if (!content) return [];
+
+  const issues: LintIssue[] = [];
+  const totalBytes = Buffer.byteLength(content, 'utf-8');
+  const totalKB = (totalBytes / 1024).toFixed(1);
+
+  if (totalBytes > MEMORY_TOTAL_ERROR_BYTES) {
+    issues.push({
+      check: 'Memory budget',
+      severity: 'error',
+      message: `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB Claude Code warning threshold (loads into every session). Rewrite against per-section budgets in mcp-server/src/knowledge/compile.md.`,
+      file: MEMORY_INDEX_PATH
+    });
+  } else if (totalBytes > MEMORY_TOTAL_WARN_BYTES) {
+    issues.push({
+      check: 'Memory budget',
+      severity: 'warning',
+      message: `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_WARN_BYTES / 1000}KB hard budget (warning fires at ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB). Compress at next compile.`,
+      file: MEMORY_INDEX_PATH
+    });
+  }
+
+  const sections = parseMemorySections(content);
+  for (const cfg of MEMORY_SECTION_BUDGETS) {
+    const section = sections.get(cfg.name);
+    if (!section) continue;
+    const bytes = Buffer.byteLength(section, 'utf-8');
+    const bullets = extractTopLevelBullets(section);
+
+    if (bytes > cfg.maxBytes) {
+      issues.push({
+        check: 'Memory budget',
+        severity: 'warning',
+        message: `${MEMORY_INDEX_PATH} § ${cfg.name} is ${(bytes / 1024).toFixed(1)}KB (budget ${cfg.maxBytes / 1000}KB). Demote older entries or collapse multi-sentence bullets to pointers.`,
+        file: MEMORY_INDEX_PATH
+      });
+    }
+    if (Number.isFinite(cfg.maxBullets) && bullets.length > cfg.maxBullets) {
+      issues.push({
+        check: 'Memory budget',
+        severity: 'warning',
+        message: `${MEMORY_INDEX_PATH} § ${cfg.name} has ${bullets.length} bullets (budget ${cfg.maxBullets}). Demote lowest-priority / least-recently-touched ones.`,
+        file: MEMORY_INDEX_PATH
+      });
+    }
+    if (Number.isFinite(cfg.maxBulletChars)) {
+      const oversized = bullets.filter((b) => b.length > cfg.maxBulletChars);
+      if (oversized.length > 0) {
+        const longest = Math.max(...oversized.map((b) => b.length));
+        issues.push({
+          check: 'Memory budget',
+          severity: 'warning',
+          message: `${MEMORY_INDEX_PATH} § ${cfg.name} has ${oversized.length} bullet(s) over ${cfg.maxBulletChars} chars (longest: ${longest}). Each bullet is a pointer, not a recap — push detail into the linked task / daily memory.`,
+          file: MEMORY_INDEX_PATH
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
 // ── Helpers (exported for tests) ──────────────────────────────────────
+
+/**
+ * Split a markdown file into `## Heading` sections. Heading text is
+ * normalised by stripping any trailing parenthetical (e.g.
+ * `## Recent Decisions (Last 2 Weeks)` → `Recent Decisions`).
+ */
+export function parseMemorySections(content: string): Map<string, string> {
+  const sections = new Map<string, string>();
+  let current: string | null = null;
+  let buffer: string[] = [];
+
+  for (const line of content.split('\n')) {
+    const match = line.match(/^##\s+(.+?)(?:\s+\(.+\))?\s*$/);
+    if (match) {
+      if (current !== null) sections.set(current, buffer.join('\n'));
+      current = match[1].trim();
+      buffer = [];
+    } else if (current !== null) {
+      buffer.push(line);
+    }
+  }
+  if (current !== null) sections.set(current, buffer.join('\n'));
+  return sections;
+}
+
+/**
+ * Return one entry per top-level bullet (`- ` at column 0). Continuation
+ * lines (indented or non-blank without a leading dash) fold into the
+ * current bullet so multi-paragraph entries are counted as a single
+ * oversized bullet rather than many small ones.
+ */
+export function extractTopLevelBullets(section: string): string[] {
+  const bullets: string[] = [];
+  let current: string | null = null;
+  for (const line of section.split('\n')) {
+    if (/^- /.test(line)) {
+      if (current !== null) bullets.push(current);
+      current = line;
+    } else if (current !== null) {
+      if (line.trim() === '') {
+        bullets.push(current);
+        current = null;
+      } else {
+        current += '\n' + line;
+      }
+    }
+  }
+  if (current !== null) bullets.push(current);
+  return bullets;
+}
+
 
 export const stripFrontmatter = stripFrontmatterShared;
 
@@ -373,12 +510,13 @@ export async function run(opts: LintOptions = {}): Promise<LintSummary> {
       checkMissingBacklinks(articles),
       checkSparseArticles(articles),
       checkTransientMemoryRefs(articles),
-      checkInvalidFrontmatter(articles)
+      checkInvalidFrontmatter(articles),
+      checkMemoryBudget(articles)
     ]);
     const allIssues = checks.flat();
 
     log.info(
-      `Structural checks: ${checks[0].length} broken, ${checks[1].length} orphan pages, ${checks[2].length} orphan sources, ${checks[3].length} missing backlinks, ${checks[4].length} sparse, ${checks[5].length} transient refs, ${checks[6].length} invalid frontmatter`
+      `Structural checks: ${checks[0].length} broken, ${checks[1].length} orphan pages, ${checks[2].length} orphan sources, ${checks[3].length} missing backlinks, ${checks[4].length} sparse, ${checks[5].length} transient refs, ${checks[6].length} invalid frontmatter, ${checks[7].length} memory budget`
     );
 
     // Auto-fix
