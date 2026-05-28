@@ -16,7 +16,7 @@ const log = baseLog.knowledge.with('compile');
 export const tools: ToolDef[] = [
   defineTool({
     name: 'compile_status',
-    description: 'How many raw items are pending compilation (sessions/feedback/user/specs).',
+    description: 'How many raw items are pending compilation (sessions/feedback/inbox).',
     inputSchema: {},
     handler: async () => getStatus()
   }),

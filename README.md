@@ -216,7 +216,7 @@ graph LR
     PRE[PreCompact hook] --> SES
     SES --> C[knowledge-compile]
     FB[raw/user/feedback.md] --> C
-    SPEC[raw/specs/] --> C
+    INBOX[raw/inbox/] --> C
     C --> USER[user/]
     C --> CON[concepts/]
     C --> MEM[memory/]
@@ -227,7 +227,18 @@ graph LR
 
 **The capture is automatic.** Every time you exit a session, or Claude Code auto-compacts mid-session, a hook script reads your transcript and appends it to today's session log under `knowledge/raw/sessions/YYYY-MM-DD.md`. The hook **redacts API key values** before writing (exact-match against `.claude/settings.local.json` env values, plus prefix heuristics for `sk-…`, `pplx-…`, `AIza…`, `sk-ant-…`, `gh[pous]_…`).
 
-**The compile is on-demand.** When you run `/agent-kevin:knowledge-compile`, Kevin picks up any session logs whose hash has changed since last compile, plus any specs you've dropped into `knowledge/raw/specs/`, plus any new feedback in `knowledge/raw/user/feedback.md`. The MCP server returns a synthesis prompt; *you*, in your TUI session, synthesize; the MCP server confirms the write. Idempotent, hash-tracked, interruptible.
+**Capture anything else manually.** A thought, a meeting note, a clipped article, a file, a correction rule — anything you want compiled into the wiki goes in via the `capture` verb. Same destination, same compile pipeline; you just initiate it instead of a hook.
+
+```sh
+kevin capture "remember to follow up with tracy on constitution lodgement"
+kevin capture --file=~/notes/board-meeting.md --title="Board meeting 2026-05-28"
+pbpaste | kevin capture --stdin --title="Clipped article"
+kevin capture --kind=feedback "don't propose git push for local-only repos"
+```
+
+Default destination is `knowledge/raw/inbox/<YYYY-MM-DD-HHMM>-<slug>.md`. `--kind=feedback` routes to `knowledge/raw/user/feedback.md` instead — operator-meta (corrections, preferences, rules), compiled into `memory/index.md` → `## Learnings`. Local-only, secret-redacted (same heuristics as session capture), atomic write, content-hash deduped (re-capturing identical input short-circuits to the existing file). The same surface is exposed as `mcp__plugin_agent-kevin_kevin__capture` for use inside Claude Code sessions.
+
+**The compile is on-demand.** When you run `/agent-kevin:knowledge-compile`, Kevin picks up any session logs whose hash has changed since last compile, plus any inputs you've captured into `knowledge/raw/inbox/` (via `kevin capture`, the MCP `capture` tool, or a direct file drop), plus any new feedback in `knowledge/raw/user/feedback.md`. The MCP server returns a synthesis prompt; *you*, in your TUI session, synthesize; the MCP server confirms the write. Idempotent, hash-tracked, interruptible.
 
 | Output | Lifecycle | What lives there |
 |---|---|---|
@@ -385,7 +396,7 @@ graph LR
 |---|---|
 | `init` | First-run onboarding |
 | `configure-skills` | Configure skill packs, install third-party libraries |
-| `knowledge-compile` | Synthesise raw sessions/feedback/specs into the wiki |
+| `knowledge-compile` | Synthesise raw sessions/feedback/inbox items into the wiki |
 | `create-project` / `archive-project` | Project lifecycle |
 | `flywheel` | Cross-project work session |
 | `sync` | End-to-end maintenance: compile → lint+fix → memory-prune → dashboard refresh → briefing in one pass |
@@ -479,9 +490,9 @@ agent-kevin/
 │   ├── concepts/            # cross-cutting articles
 │   ├── memory/              # hot context (threads, decisions, learnings)
 │   ├── raw/                 # unprocessed inputs to compile
-│   │   ├── archive/         # compiled specs land here after compile
+│   │   ├── archive/         # compiled inbox items land here after compile
 │   │   ├── sessions/        # auto-captured conversations (the source of evolution)
-│   │   ├── specs/           # drop design docs here for distillation
+│   │   ├── inbox/           # drop any input here (or use `kevin capture`) for distillation
 │   │   └── user/
 │   │       └── feedback.md  # corrections log (append-only)
 │   ├── user/                # evolving long-form knowledge about you (incl. profile.md with your avatar)

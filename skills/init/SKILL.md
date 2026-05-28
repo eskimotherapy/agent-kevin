@@ -245,7 +245,7 @@ KNOWLEDGE_ROOT="${KEVIN_KNOWLEDGE:-$HOME_DIR/knowledge}"
 PROJECTS_ROOT="${KEVIN_PROJECTS:-$HOME_DIR/projects}"
 
 mkdir -p "$HOME_DIR"/.kevin/{config,logs} "$HOME_DIR"/.claude/assets
-mkdir -p "$KNOWLEDGE_ROOT"/{user/assets,concepts,memory,raw/{sessions,user,specs,archive/specs}}
+mkdir -p "$KNOWLEDGE_ROOT"/{user/assets,concepts,memory,raw/{sessions,user,inbox,archive/inbox}}
 mkdir -p "$PROJECTS_ROOT"
 ```
 
@@ -648,7 +648,7 @@ _(empty — compiled articles land here as `concepts/<slug>.md` after `/agent-ke
 
 ## Reports (transient skill outputs — 3rd-degree context)
 
-- [reports/index](../reports/index.md) — dated audit trail of all skill outputs (briefings, plans, etc.). Read-only network of links; not absorbed into memory or concepts. Promote anything durable to `raw/specs/` and compile. File is auto-created by `report_write` on the first reporting-skill call.
+- [reports/index](../reports/index.md) — dated audit trail of all skill outputs (briefings, plans, etc.). Read-only network of links; not absorbed into memory or concepts. Promote anything durable into `raw/inbox/` (via `kevin capture --file=...` or a direct drop) and compile. File is auto-created by `report_write` on the first reporting-skill call.
 
 ## Projects
 
@@ -660,8 +660,8 @@ Cross-project task dashboard: [projects/TASKS.md](../projects/TASKS.md).
 
 - `raw/sessions/YYYY-MM-DD.md` — auto-captured session transcripts (single file per day, no suffixes)
 - `raw/user/feedback.md` — append-only correction + reaction log; compiled into [[memory/index]] `## Learnings`
-- `raw/specs/` — drop design docs here for compile to distill into concepts
-- `raw/archive/specs/` — compiled specs land here post-archive
+- `raw/inbox/` — drop any input here (or use `kevin capture`) for compile to distill into concepts
+- `raw/archive/inbox/` — compiled inbox items land here post-archive
 ```
 
 Substitute `<NAME>` with the operator's name from Step 4a and `<YYYY-MM-DD>` with today's date. The Reports link points at a path that doesn't exist until `report_write` runs once — Obsidian renders the unresolved link gracefully, and the file materialises on first use.

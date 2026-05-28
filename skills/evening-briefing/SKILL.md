@@ -24,7 +24,7 @@ Close the day cleanly. Show what landed, name what didn't, flag what'll bite tom
 - **Today-only.** If today produced no closures, no commits, no raw session, no project artifacts: **do not** silently drift to yesterday's content to satisfy a bullet quota. Trigger the cheeky-line fallback instead.
 - **Cheeky-line fallback** — when `closed today = 0` AND no raw session for today AND no commits today AND no `projects/*` files touched today: output **only** the header + a single dry one-liner acknowledging the quiet day. No bullets. No sections.
 - **Trust raw sessions + git + filesystem over the memory index** on conflicts. Memory compiles on a delay.
-- **Surface artifacts in `📦 Drafted` even when no task closed.** New files / specs / PRs / decisions in raw sessions count.
+- **Surface artifacts in `📦 Drafted` even when no task closed.** New files / inbox captures / PRs / decisions in raw sessions count.
 - **`✅ Shipped` is only landings.** PRs merged, tasks closed, deploys live, decisions locked. In-flight work goes in `🚧 Still in motion`, not here.
 
 ## Header — date + Hijri
@@ -42,7 +42,7 @@ Format: `🌙 Evening Wrap · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`. C
   (Landings only. 2–6 bullets. If zero true landings, omit section.)
 
 📦 Drafted
-  • <project-slug> — <artifacts created today that aren't closures: PRs opened, specs drafted, knowledge concepts added, threads opened, status flips>
+  • <project-slug> — <artifacts created today that aren't closures: PRs opened, inbox captures, knowledge concepts added, threads opened, status flips>
   • ...
   (Group by project. Skip section if nothing drafted.)
 

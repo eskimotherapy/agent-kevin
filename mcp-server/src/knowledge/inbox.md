@@ -1,27 +1,28 @@
-You are compiling an implementation spec or protocol document into Kevin's
-knowledge wiki. The spec has been implemented (or is being adopted); your job
-is to preserve its **durable reasoning** — the patterns, principles, and
-decisions that will still matter in six months — before the raw file is
-consumed.
+You are compiling an inbox input — an implementation spec, design doc, captured
+thought, clipped article, or other dropped artifact — into Kevin's knowledge
+wiki. The input has been dropped (manually into `raw/inbox/` or via the
+`capture` verb); your job is to preserve its **durable reasoning** — the
+patterns, principles, and decisions that will still matter in six months —
+before the raw file is consumed.
 
 ## Current wiki index (the manifest)
 
-This is the canonical list of every permanent article, including all existing concepts. **Use the `Read` tool to fetch the full content of any concept you plan to update or extend.** If the spec reinforces an existing concept, read it first and append rather than create a new one.
+This is the canonical list of every permanent article, including all existing concepts. **Use the `Read` tool to fetch the full content of any concept you plan to update or extend.** If the input reinforces an existing concept, read it first and append rather than create a new one.
 
 {{wikiIndex}}
 
-## Spec to compile
+## Input to compile
 
 **File:** `{{fileName}}`
 
-{{specContent}}
+{{inboxContent}}
 
 ## Your task
 
-Distil this spec into one or more concept articles under
+Distil this input into one or more concept articles under
 `{{knowledgeDir}}/concepts/`. After this compile run the raw file will be
 moved to `{{archivedRelPath}}` — so cite the archived path (not
-`raw/specs/...`, which won't exist anymore):
+`raw/inbox/...`, which won't exist anymore):
 
 ```yaml
 ---
@@ -34,11 +35,11 @@ updated: <YYYY-MM-DD>
 
 **Rules:**
 
-1. **Prefer updating existing concepts** when the spec reinforces or extends
+1. **Prefer updating existing concepts** when the input reinforces or extends
    a pattern already documented. Read the existing article first. Append the
    source filename to its `sources:` array if that's how it got updated.
 2. **Create new concepts sparingly** — only for patterns that cross-cut
-   projects, or principles worth naming and referring to later. A spec
+   projects, or principles worth naming and referring to later. An input
    describing one feature of one project rarely produces a durable concept.
 3. **Extract these things:** architectural decisions with rationale,
    recurring patterns, non-obvious tradeoffs, invariants, naming
@@ -53,7 +54,7 @@ updated: <YYYY-MM-DD>
 7. **If nothing distillable emerges** — no durable pattern, no cross-cutting
    principle, nothing non-obvious — write no articles. Respond with a short
    explanation of why. The raw file will be consumed either way; a clean
-   rejection is the right outcome for a thin spec.
+   rejection is the right outcome for a thin input.
 
 Quality bar: would a new contributor reading the resulting concept in six
 months say "that's useful, I didn't know that"? If no, don't write it.

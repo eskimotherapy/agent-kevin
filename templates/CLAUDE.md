@@ -78,8 +78,8 @@ The agent home directory is the single source of truth for memory.
 │   └── raw/                         # unprocessed inputs to compile
 │       ├── sessions/YYYY-MM-DD.md   # auto-captured by SessionEnd hook
 │       ├── user/feedback.md         # append-only correction log
-│       ├── specs/                   # drop design docs here for compilation
-│       └── archive/specs/           # compiled specs land here
+│       ├── inbox/                   # drop any input here (or use `kevin capture`) for compilation
+│       └── archive/inbox/           # compiled inbox items land here
 ├── {{PROJECTS_REL}}/
 │   ├── TASKS.md                     # cross-project dashboard
 │   └── <slug>/
@@ -93,9 +93,9 @@ The agent home directory is the single source of truth for memory.
 
 Raw → compiled lifecycle:
 - Sessions auto-captured to `raw/sessions/` by the `SessionEnd` hook
-- Drop specs into `raw/specs/`, correction-style feedback into `raw/user/feedback.md` (or other user content into `raw/user/`)
+- Capture any input into `raw/inbox/` (use `kevin capture` / the MCP `capture` tool, or drop a file directly), correction-style feedback into `raw/user/feedback.md` via `capture --kind=feedback` (or appended directly)
 - Run `/agent-kevin:knowledge-compile` — Kevin synthesises wiki articles, updating `{{KNOWLEDGE_REL}}/user/`, `{{KNOWLEDGE_REL}}/concepts/`, `{{KNOWLEDGE_REL}}/memory/`, and occasionally `USER.md`
-- Sessions stay on disk; specs archive; feedback hash-tracked
+- Sessions stay on disk; inbox items archive after compile; feedback hash-tracked
 
 ## Task System
 

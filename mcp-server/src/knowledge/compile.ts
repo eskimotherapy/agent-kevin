@@ -1,5 +1,5 @@
 /**
- * Unified compile orchestration — sessions, feedback, specs.
+ * Unified compile orchestration — sessions, feedback, inbox.
  *
  * Pure I/O + state. No LLM calls. The MCP server returns the next work item
  * (with a fully-rendered prompt and source content); the calling Claude
@@ -17,9 +17,9 @@ import { basename, resolve } from 'node:path';
 
 const SESSION_TEMPLATE = loadScriptTemplate(import.meta.url, 'compile.md');
 const FEEDBACK_TEMPLATE = loadScriptTemplate(import.meta.url, 'feedback.md');
-const SPECS_TEMPLATE = loadScriptTemplate(import.meta.url, 'specs.md');
+const INBOX_TEMPLATE = loadScriptTemplate(import.meta.url, 'inbox.md');
 
-export type CompileKind = 'session' | 'feedback' | 'specs';
+export type CompileKind = 'session' | 'feedback' | 'inbox';
 
 export interface CompileWorkItem {
   itemId: string;
@@ -30,7 +30,7 @@ export interface CompileWorkItem {
 }
 
 export interface CompileStatus {
-  pending: { sessions: number; feedback: number; specs: number };
+  pending: { sessions: number; feedback: number; inbox: number };
   inFlight: string | null;
   totalIngested: number;
 }
@@ -58,12 +58,12 @@ async function feedbackChanged(state: CompileState): Promise<{ changed: boolean;
   return { changed: !prev || prev.hash !== hash, hash };
 }
 
-async function listSpecArtifacts(): Promise<string[]> {
+async function listInboxArtifacts(): Promise<string[]> {
   try {
-    const entries = await readdir(FOLDERS.SPECS_RAW, { withFileTypes: true });
+    const entries = await readdir(FOLDERS.INBOX_RAW, { withFileTypes: true });
     return entries
       .filter((e) => e.isFile() && !e.name.startsWith('.'))
-      .map((e) => resolve(FOLDERS.SPECS_RAW, e.name))
+      .map((e) => resolve(FOLDERS.INBOX_RAW, e.name))
       .sort();
   } catch {
     return [];
@@ -126,17 +126,17 @@ async function buildFeedbackPrompt(): Promise<string> {
   });
 }
 
-async function buildSpecPrompt(specPath: string): Promise<string> {
-  const fileName = basename(specPath);
-  const [specContent, wikiIndex] = await Promise.all([
-    readFile(specPath, 'utf-8'),
+async function buildInboxPrompt(inboxPath: string): Promise<string> {
+  const fileName = basename(inboxPath);
+  const [inboxContent, wikiIndex] = await Promise.all([
+    readFile(inboxPath, 'utf-8'),
     readWikiIndex()
   ]);
-  return renderTemplate(SPECS_TEMPLATE, {
+  return renderTemplate(INBOX_TEMPLATE, {
     wikiIndex,
     fileName,
-    specContent,
-    archivedRelPath: `raw/archive/specs/${fileName}`,
+    inboxContent,
+    archivedRelPath: `raw/archive/inbox/${fileName}`,
     knowledgeDir: FOLDERS.KNOWLEDGE
   });
 }
@@ -204,20 +204,20 @@ export async function pickNext(): Promise<CompileWorkItem | null> {
     };
   }
 
-  // 3. Specs.
-  const specs = await listSpecArtifacts();
-  if (specs.length > 0) {
-    const specPath = specs[0];
-    const fileName = basename(specPath);
-    const prompt = await buildSpecPrompt(specPath);
-    state.in_flight = `specs/${fileName}`;
+  // 3. Inbox.
+  const inboxItems = await listInboxArtifacts();
+  if (inboxItems.length > 0) {
+    const inboxPath = inboxItems[0];
+    const fileName = basename(inboxPath);
+    const prompt = await buildInboxPrompt(inboxPath);
+    state.in_flight = `inbox/${fileName}`;
     await saveState(state);
     return {
-      itemId: `specs:${fileName}`,
-      kind: 'specs',
+      itemId: `inbox:${fileName}`,
+      kind: 'inbox',
       fileName,
       prompt,
-      meta: { sourcePath: specPath, archivedTo: resolve(FOLDERS.SPECS_ARCHIVE, fileName) }
+      meta: { sourcePath: inboxPath, archivedTo: resolve(FOLDERS.INBOX_ARCHIVE, fileName) }
     };
   }
 
@@ -270,13 +270,13 @@ const HANDLERS: Array<[string, CompleteHandler]> = [
     }
   ],
   [
-    'specs:',
+    'inbox:',
     async (itemId) => {
-      const fileName = itemId.slice('specs:'.length);
-      const src = resolve(FOLDERS.SPECS_RAW, fileName);
+      const fileName = itemId.slice('inbox:'.length);
+      const src = resolve(FOLDERS.INBOX_RAW, fileName);
       if (existsSync(src)) {
-        await mkdir(FOLDERS.SPECS_ARCHIVE, { recursive: true });
-        await rename(src, resolve(FOLDERS.SPECS_ARCHIVE, fileName));
+        await mkdir(FOLDERS.INBOX_ARCHIVE, { recursive: true });
+        await rename(src, resolve(FOLDERS.INBOX_ARCHIVE, fileName));
       }
       return true;
     }
@@ -289,7 +289,7 @@ export async function markComplete(itemId: string): Promise<{ ok: true; promoted
 
   for (const [prefix, handler] of HANDLERS) {
     // Prefixes ending in `:` are namespace prefixes (e.g. `session:<file>`,
-    // `specs:<file>`) and match via startsWith. Bare prefixes (e.g. `feedback`)
+    // `inbox:<file>`) and match via startsWith. Bare prefixes (e.g. `feedback`)
     // must match exactly, otherwise `feedbackXYZ` would route here too.
     const matches = prefix.endsWith(':') ? itemId.startsWith(prefix) : itemId === prefix;
     if (matches) {
@@ -306,16 +306,16 @@ export async function markComplete(itemId: string): Promise<{ ok: true; promoted
 
 export async function getStatus(): Promise<CompileStatus> {
   const state = await loadState();
-  const [sessions, fb, specs] = await Promise.all([
+  const [sessions, fb, inboxItems] = await Promise.all([
     pendingSessions(state),
     feedbackChanged(state),
-    listSpecArtifacts()
+    listInboxArtifacts()
   ]);
   return {
     pending: {
       sessions: sessions.length,
       feedback: fb.changed ? 1 : 0,
-      specs: specs.length
+      inbox: inboxItems.length
     },
     inFlight: state.in_flight,
     totalIngested: Object.keys(state.ingested).length

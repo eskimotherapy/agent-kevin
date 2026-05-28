@@ -4,6 +4,7 @@
  *
  * Subcommands:
  *   kevin ping
+ *   kevin capture [text] [--file=PATH] [--kind=inbox|feedback] [--title=...] [--label=...] [--stdin]
  *   kevin task query [--project=NAME] [--status=...] [--priority=P0-P3]
  *   kevin task get <id>
  *   kevin task create --project=NAME --title=... --description=... [--priority=P2]
@@ -89,6 +90,7 @@ Usage:
 
 Groups:
   ping                              Print resolved paths + timezone (sanity check)
+  capture                           Capture text / a file / stdin into raw/inbox/ (or feedback.md) for the next compile
   task                              Read + mutate task files under projects/*/tasks/
   compile                           Knowledge-compile state (synthesis runs in Claude Code, not here)
   knowledge                         Wiki maintenance (lint)
@@ -105,6 +107,13 @@ Task commands:
   task scan                         Resolve dependencies, surface overdue/stale/auto-* changes
   task dashboard                    Rebuild projects/TASKS.md from frontmatter
 
+Capture commands:
+  capture "the thought"             Write inline text to raw/inbox/<ts>-<slug>.md (next compile distils it)
+  capture --file=PATH               Capture a file's contents into raw/inbox/
+  capture --stdin                   Read content from stdin (e.g. \`pbpaste | kevin capture --stdin\`)
+  capture ... --kind=feedback       Append to raw/user/feedback.md instead of inbox/ (corrections/preferences)
+  capture ... --title=X --label=Y   Optional metadata (slug source + frontmatter label)
+
 Knowledge commands:
   knowledge lint [--fix]            Structural health check; --fix rewrites stale wikilinks + inserts backlinks
 
@@ -120,6 +129,10 @@ Environment:
   KEVIN_TIMEZONE=<tz>               Override timezone (default: system tz)
 
 Examples:
+  kevin capture "remember to follow up with tracy on constitution lodgement"
+  kevin capture --file=~/notes/board-meeting.md --title="Board meeting 2026-05-28"
+  pbpaste | kevin capture --stdin --title="Clipped article"
+  kevin capture --kind=feedback "don't propose git push for local-only repos"
   kevin task query --status=active
   kevin task create --project=blog-dev --title="Draft launch post" --description="..." --priority=P1
   kevin task dashboard
@@ -292,6 +305,38 @@ async function run(): Promise<void> {
       default:
         throw new Error(`Unknown knowledge subcommand: ${command}`);
     }
+  }
+
+  if (group === 'capture') {
+    // Combine command + args so flags can land anywhere after `capture`. The
+    // first non-flag arg (if any) is treated as inline positional text, so
+    // `kevin capture "the thought"` works without --text=.
+    const allArgs = [command, ...args].filter((a): a is string => Boolean(a));
+    const localFlag = (name: string): string | undefined => {
+      const f = allArgs.find((a) => a.startsWith(`--${name}=`));
+      return f?.slice(name.length + 3);
+    };
+    const positional = allArgs.find((a) => !a.startsWith('--'));
+    const wantStdin = allArgs.includes('--stdin');
+    let text = positional ?? localFlag('text');
+    if (!text && !localFlag('file') && (wantStdin || !process.stdin.isTTY)) {
+      text = await new Promise<string>((resolveFn) => {
+        let data = '';
+        process.stdin.setEncoding('utf-8');
+        process.stdin.on('data', (chunk) => (data += chunk));
+        process.stdin.on('end', () => resolveFn(data));
+      });
+    }
+    const { capture } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/knowledge/capture'));
+    const result = await capture({
+      text,
+      file: localFlag('file'),
+      kind: localFlag('kind') as 'inbox' | 'feedback' | undefined,
+      title: localFlag('title'),
+      label: localFlag('label')
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return;
   }
 
   if (group === 'prune') {

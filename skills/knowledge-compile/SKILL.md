@@ -1,6 +1,6 @@
 ---
 name: knowledge-compile
-description: Compile raw session logs, feedback, and specs into structured wiki articles. Orchestrated in this session — MCP returns work items, Claude synthesizes, MCP confirms.
+description: Compile raw session logs, feedback, and inbox items into structured wiki articles. Orchestrated in this session — MCP returns work items, Claude synthesizes, MCP confirms.
 disable-model-invocation: true
 allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, Read, Write, Edit, Glob, Grep
 ---
@@ -14,7 +14,7 @@ Compile raw inputs from `<HOME>/knowledge/raw/` into structured wiki articles. T
 1. Call `mcp__plugin_agent-kevin_kevin__compile_status` to see what's pending.
 2. Call `mcp__plugin_agent-kevin_kevin__compile_next`:
    - If `done: true`, you're finished. Stop.
-   - Otherwise, item is `{ itemId, kind, fileName, prompt, meta }`. `kind` is `session` | `feedback` | `specs`.
+   - Otherwise, item is `{ itemId, kind, fileName, prompt, meta }`. `kind` is `session` | `feedback` | `inbox`.
 3. **Read the `prompt` field carefully.** It contains:
    - The CLAUDE.md operating manual (how to organise the wiki)
    - The current `USER.md` (who the user is)
@@ -27,7 +27,7 @@ Compile raw inputs from `<HOME>/knowledge/raw/` into structured wiki articles. T
    - Updates to `<HOME>/knowledge/memory/index.md` (active threads, recent decisions, learnings)
    - New or updated `<HOME>/knowledge/concepts/<slug>.md` (cross-cutting patterns)
    - Updates to `<HOME>/USER.md` (durable facts about you)
-5. After all edits land, call `mcp__plugin_agent-kevin_kevin__compile_write` with the `itemId`. State is updated: session items advance chunk counter (or promote on last chunk); feedback marks hash; specs archive the source file.
+5. After all edits land, call `mcp__plugin_agent-kevin_kevin__compile_write` with the `itemId`. State is updated: session items advance chunk counter (or promote on last chunk); feedback marks hash; inbox items archive the source file.
 6. Goto step 2.
 
 ## Gap pass (on completion)
@@ -47,7 +47,7 @@ Do **not** invent gaps to hit a quota. Most runs surface 0–3. This is a judgme
 
 ## Boundaries
 
-- **Do not modify the raw source file.** The session log, feedback log, or spec under `raw/` is the input; never edit it. Compilation produces *new or updated wiki articles* and (for specs) archives the source via `compile_write`.
+- **Do not modify the raw source file.** The session log, feedback log, or inbox item under `raw/` is the input; never edit it. Compilation produces *new or updated wiki articles* and (for inbox items) archives the source via `compile_write`.
 - **One itemId at a time.** Sessions may chunk: `meta.totalChunks > 1` means multiple `compile_next` calls for the same file. The prompt already contains only the current chunk's content — synthesize only what's in this chunk.
 - **Idempotency is enforced by hash.** If the source hasn't changed since the last successful compile, `compile_next` won't return it again.
 

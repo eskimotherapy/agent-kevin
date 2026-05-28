@@ -29,7 +29,7 @@ Target: ~400–600 words, eight sections, one concrete first move, banana sign-o
 ## Guardrails
 
 - **Trust today's raw sessions over the memory index when they disagree.** Memory compiles on a delay; raw sessions are ground truth for <24h activity.
-- **Surface artifacts in `📦 Drafted` even when no task closed.** New files in `projects/<slug>/` or `knowledge/raw/specs/` written today count as progress.
+- **Surface artifacts in `📦 Drafted` even when no task closed.** New files in `projects/<slug>/` or `knowledge/raw/inbox/` written today count as progress.
 - **Status verbs in `🏗️ Projects` must reflect what you observed in raw sessions + git + filesystem, not stale memory threads.**
 - **Cheeky one-liner fallback** — if `closed today = 0` AND no raw session today AND no project artifacts modified today AND no commits today, skip the full structure and respond with a single dry/funny line acknowledging the empty day. Don't pad with yesterday's news.
 
@@ -54,7 +54,7 @@ To compute Hijri date: prefer a one-shot conversion. Try in order:
   (3–6 bullets; mix P0/P1 active + the one P0 you should drop everything for. Inline-code task IDs.)
 
 📦 Drafted
-  • <project-slug> — <what moved yesterday/overnight that isn't a closed task: PRs, specs, knowledge concepts, status flips, decisions>
+  • <project-slug> — <what moved yesterday/overnight that isn't a closed task: PRs, inbox captures, knowledge concepts, status flips, decisions>
   • <project-slug> — ...
   (Group by project. Pull from today's raw sessions + git log + new files. Skip section only if truly nothing drafted.)
 

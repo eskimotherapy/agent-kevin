@@ -26,7 +26,7 @@ If `GSC_SITE_URL` isn't set, stop and tell the user to run `/agent-kevin:configu
 - Look for a matching project: scan `<HOME>/projects/*/README.md` for any that references `$SITE` or contains `$SITE_SLUG` in the directory name. If found, set `$PROJECT_DIR = <HOME>/projects/<matched-slug>/` and read its `README.md` plus any `PRIORITY-PAGES.md` / `priority-pages.md` for context (vision, focus pages).
 - If `$PROJECT_DIR/audits/` exists, read the **three most recent** audit files (excluding any `TEMPLATE.md`) — used for trend comparison vs last audit.
 
-If no matching project exists, the audit still runs — output just lands in `<HOME>/knowledge/raw/specs/` instead.
+If no matching project exists, the audit still runs — output just lands in `<HOME>/knowledge/raw/inbox/` instead.
 
 ## Step 2 — Data pulls
 
@@ -106,7 +106,7 @@ This keeps action items in the user's existing task flow instead of duplicating 
 
 Path:
 - If `$PROJECT_DIR` exists → `$PROJECT_DIR/audits/YYYY-MM-DD.md` (create `audits/` dir if missing)
-- Otherwise → `<HOME>/knowledge/raw/specs/seo-audit-<SITE_SLUG>-YYYY-MM-DD.md`
+- Otherwise → `<HOME>/knowledge/raw/inbox/seo-audit-<SITE_SLUG>-YYYY-MM-DD.md`
 
 File shape:
 
@@ -172,4 +172,4 @@ And still write the audit file with `findings: 0` in frontmatter and just the `#
 - ❌ **Don't fan out SerpAPI calls** across every top-30 page. Each costs a query. Only on flagged anomalies.
 - ❌ **Don't try to screenshot Google SERPs** with playwright — CAPTCHA blocks it. Use SerpAPI for SERP data.
 - ❌ **Don't auto-update task frontmatter** when threading. Only append to `## Thread`.
-- ❌ **Don't write to `<HOME>/projects/` if no matching project was found.** The fallback path is `<HOME>/knowledge/raw/specs/` — that's where standalone audits live until promoted.
+- ❌ **Don't write to `<HOME>/projects/` if no matching project was found.** The fallback path is `<HOME>/knowledge/raw/inbox/` — that's where standalone audits live until promoted.

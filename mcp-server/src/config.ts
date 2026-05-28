@@ -29,8 +29,8 @@ export const FOLDERS = {
   CONCEPTS: resolve(KNOWLEDGE_ROOT, 'concepts'),
   SESSIONS: resolve(KNOWLEDGE_ROOT, 'raw', 'sessions'),
   USER_RAW: resolve(KNOWLEDGE_ROOT, 'raw', 'user'),
-  SPECS_RAW: resolve(KNOWLEDGE_ROOT, 'raw', 'specs'),
-  SPECS_ARCHIVE: resolve(KNOWLEDGE_ROOT, 'raw', 'archive', 'specs'),
+  INBOX_RAW: resolve(KNOWLEDGE_ROOT, 'raw', 'inbox'),
+  INBOX_ARCHIVE: resolve(KNOWLEDGE_ROOT, 'raw', 'archive', 'inbox'),
   PROJECTS: fromEnv('KEVIN_PROJECTS', resolve(KEVIN_HOME, 'projects')),
   REPORTS: fromEnv('KEVIN_REPORTS', resolve(KEVIN_HOME, 'reports'))
 } as const;
