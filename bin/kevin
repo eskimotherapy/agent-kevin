@@ -6,6 +6,7 @@
  *   kevin ping
  *   kevin capture [text] [--file=PATH] [--kind=inbox|feedback] [--title=...] [--label=...] [--stdin]
  *   kevin session-capture --mode=session-end|pre-compact [--hook-protocol=claude] [--transcript=PATH --cwd=PATH --session-id=X] [--exclude PATH] [--format=claude]
+ *   kevin session-start [--hook-protocol=claude]
  *   kevin task query [--project=NAME] [--status=...] [--priority=P0-P3]
  *   kevin task get <id>
  *   kevin task create --project=NAME --title=... --description=... [--priority=P2]
@@ -113,6 +114,7 @@ Groups:
   ping                              Print resolved paths + timezone (sanity check)
   capture                           Capture text / a file / stdin into raw/inbox/ (or feedback.md) for the next compile
   session-capture                   Ingest a session transcript into raw/sessions/<today>.md (called by Claude Code hooks)
+  session-start                     Emit dynamic context (today / last session tail / git activity) for the host's SessionStart hook
   task                              Read + mutate task files under projects/*/tasks/
   compile                           Knowledge-compile state (synthesis runs in Claude Code, not here)
   knowledge                         Wiki maintenance (lint)
@@ -145,6 +147,8 @@ Hook commands (internal — wired into Claude Code hooks; safe to run manually f
                                     Skip when cwd falls under PATH (multi-agent boundary; user-level hook only).
   session-capture ... --format=claude (default)
                                     Transcript-format adapter. Future: codex, etc.
+  session-start [--hook-protocol=claude]
+                                    Emit dynamic SessionStart context. Without the flag, prints the structured result for testing.
 
 Knowledge commands:
   knowledge lint [--fix]            Structural health check; --fix rewrites stale wikilinks + inserts backlinks
@@ -337,6 +341,35 @@ async function run(): Promise<void> {
       default:
         throw new Error(`Unknown knowledge subcommand: ${command}`);
     }
+  }
+
+  if (group === 'session-start') {
+    const allArgs = [command, ...args].filter((a): a is string => Boolean(a));
+    const localFlag = (name: string): string | undefined => {
+      const f = allArgs.find((a) => a.startsWith(`--${name}=`));
+      return f?.slice(name.length + 3);
+    };
+
+    const hookProtocol = localFlag('hook-protocol');
+    if (hookProtocol !== undefined && hookProtocol !== 'claude') {
+      throw new Error(`Unknown --hook-protocol: ${hookProtocol} (supported: claude)`);
+    }
+
+    const { sessionStart } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/knowledge/session-start'));
+    const result = await sessionStart();
+
+    if (hookProtocol === 'claude') {
+      process.stdout.write(
+        JSON.stringify({
+          systemMessage: result.systemMessage,
+          hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: result.additionalContext }
+        })
+      );
+      if (result.error) process.exit(1);
+    } else {
+      console.log(JSON.stringify(result, null, 2));
+    }
+    return;
   }
 
   if (group === 'session-capture') {

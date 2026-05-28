@@ -16,7 +16,7 @@ const KEVIN = '===KEVIN=== 🍌';
 
 const colorize = (text: string, color: string): string => `${color}${text}${RESET}`;
 
-export const AGENT_KEVIN_BANNER = [
+export const BANNER = [
   ...AGENT_LINES.map((line) => colorize(line, YELLOW_BOLD)),
   colorize(KEVIN, CYAN_BOLD)
 ].join('\n');

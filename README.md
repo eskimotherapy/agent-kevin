@@ -461,7 +461,7 @@ agent-kevin/
 ├── mcp-server/              # the kevin MCP server (Bun)
 │   ├── src/
 │   └── package.json
-├── scripts/                 # remaining bun scripts (SessionStart hook + one-off migrations)
+├── scripts/                 # one-off migration scripts (session-capture/start now live in bin/kevin)
 ├── skills/                  # 19 skills (13 core + 6 SEO) auto-load with plugin
 ├── templates/               # init copies these into <HOME>
 │   ├── CLAUDE.md            # → <HOME>/CLAUDE.md (or CLAUDE.local.md on collision)
