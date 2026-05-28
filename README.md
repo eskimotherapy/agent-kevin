@@ -225,7 +225,7 @@ graph LR
     MEM -.-> NEXT
 ```
 
-**The capture is automatic.** Every time you exit a session, or Claude Code auto-compacts mid-session, a hook script reads your transcript and appends it to today's session log under `knowledge/raw/sessions/YYYY-MM-DD.md`. The hook **redacts API key values** before writing (exact-match against `.claude/settings.local.json` env values, plus prefix heuristics for `sk-…`, `pplx-…`, `AIza…`, `sk-ant-…`, `gh[pous]_…`).
+**The capture is automatic.** Every time you exit a session, or Claude Code auto-compacts mid-session, a hook calls `bin/kevin session-capture` which reads your transcript and appends it to today's session log under `knowledge/raw/sessions/YYYY-MM-DD.md`. The hook **redacts API key values** before writing (exact-match against `.claude/settings.local.json` env values, plus prefix heuristics for `sk-…`, `pplx-…`, `AIza…`, `sk-ant-…`, `gh[pous]_…`). The CLI is harness-agnostic — adding Codex (or any future host) is a one-file format adapter inside `mcp-server/src/knowledge/session-capture.ts`, not a new hook script.
 
 **Capture anything else manually.** A thought, a meeting note, a clipped article, a file, a correction rule — anything you want compiled into the wiki goes in via the `capture` verb. Same destination, same compile pipeline; you just initiate it instead of a hook.
 
@@ -461,7 +461,7 @@ agent-kevin/
 ├── mcp-server/              # the kevin MCP server (Bun)
 │   ├── src/
 │   └── package.json
-├── scripts/                 # hook scripts (Bun)
+├── scripts/                 # remaining bun scripts (SessionStart hook + one-off migrations)
 ├── skills/                  # 19 skills (13 core + 6 SEO) auto-load with plugin
 ├── templates/               # init copies these into <HOME>
 │   ├── CLAUDE.md            # → <HOME>/CLAUDE.md (or CLAUDE.local.md on collision)
@@ -591,7 +591,7 @@ By default Kevin only captures sessions when you launch `claude` from inside you
         "hooks": [
           {
             "type": "command",
-            "command": "bun /absolute/path/to/agent-kevin/scripts/session-capture.ts session-end",
+            "command": "bun /absolute/path/to/agent-kevin/bin/kevin session-capture --mode=session-end --hook-protocol=claude",
             "timeout": 30
           }
         ]
@@ -603,7 +603,7 @@ By default Kevin only captures sessions when you launch `claude` from inside you
         "hooks": [
           {
             "type": "command",
-            "command": "bun /absolute/path/to/agent-kevin/scripts/session-capture.ts pre-compact",
+            "command": "bun /absolute/path/to/agent-kevin/bin/kevin session-capture --mode=pre-compact --hook-protocol=claude",
             "timeout": 30
           }
         ]
@@ -615,12 +615,12 @@ By default Kevin only captures sessions when you launch `claude` from inside you
 
 **Why this is useful.** Kevin's knowledge compounds from raw session inputs. The richer the input stream, the richer the wiki. A coding session in another repo that mentions a new library, a debugging conversation that surfaces a workflow rule, a one-off chat that captures a decision — all of those would normally be lost. With capture-everywhere wired in, they all land in `<HOME>/knowledge/raw/sessions/YYYY-MM-DD.md` and feed the next `/agent-kevin:knowledge-compile` run.
 
-**How it stays safe.** The capture script's `isInitialized()` guard checks for `<KEVIN_HOME>/SOUL.md` before writing — if your `KEVIN_HOME` env var is misconfigured or points at a non-Kevin directory, the script logs a skip and exits. It won't pollute random dirs.
+**How it stays safe.** The CLI's `isInitialized()` guard checks for `<KEVIN_HOME>/SOUL.md` before writing — if your `KEVIN_HOME` env var is misconfigured or points at a non-Kevin directory, the verb logs a skip and exits. It won't pollute random dirs.
 
-**Excluding specific directories.** Pass one or more `--exclude PATH` (or `--exclude=PATH`) flags after the subcommand to suppress capture when `claude` is launched from those paths or any of their children. Paths are tilde-expanded and resolved to absolutes; matching uses `/`-boundary prefixes (so `~/Developer/foo` excludes `~/Developer/foo/bar` but not `~/Developer/foobar`). Useful for sibling agents (another `SOUL.md`-rooted home), Ring-1 repos that shouldn't bleed into this knowledge base, or noisy throwaway dirs:
+**Excluding specific directories.** Pass one or more `--exclude PATH` flags (repeatable) to suppress capture when `claude` is launched from those paths or any of their children. Paths are tilde-expanded and resolved to absolutes; matching uses `/`-boundary prefixes (so `~/Developer/foo` excludes `~/Developer/foo/bar` but not `~/Developer/foobar`). Useful for sibling agents (another `SOUL.md`-rooted home), Ring-1 repos that shouldn't bleed into this knowledge base, or noisy throwaway dirs:
 
 ```json
-"command": "bun /absolute/path/to/agent-kevin/scripts/session-capture.ts session-end --exclude ~/Developer/foo --exclude ~/scratch"
+"command": "bun /absolute/path/to/agent-kevin/bin/kevin session-capture --mode=session-end --hook-protocol=claude --exclude ~/Developer/foo --exclude ~/scratch"
 ```
 
 Repeat the flag in both the `SessionEnd` and `PreCompact` hook entries. The plugin's own SessionEnd hook (when you launch from the agent home itself) already takes precedence via the `pluginEnabledInCwd()` check, so excludes only need to cover *other* agent homes and dirs you actively want to skip.

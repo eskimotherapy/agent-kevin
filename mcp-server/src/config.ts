@@ -16,6 +16,11 @@ const DATA_ROOT = resolve(KEVIN_HOME, '.kevin');
 
 export const TIMEZONE = process.env.KEVIN_TIMEZONE?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
+/** Plugin name used to detect "is this plugin enabled in cwd?" in cross-agent
+ * defer logic. Mirrors `.claude-plugin/plugin.json` `name`. Kept here so the
+ * harness-agnostic capture core stays one substitution away from a fork. */
+export const PLUGIN_NAME = 'agent-kevin';
+
 export const FOLDERS = {
   ROOT: PLUGIN_ROOT,
   HOME: KEVIN_HOME,

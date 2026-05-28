@@ -1,5 +1,4 @@
-import { FILES, FOLDERS, KNOWLEDGE } from '@/config';
-import type { TranscriptTurn } from '@/shared/types';
+import { FILES, FOLDERS } from '@/config';
 import { todayDate } from '@/shared/date';
 import { createHash } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
@@ -186,64 +185,6 @@ export async function listRawFiles(): Promise<string[]> {
   }
 }
 
-// ── Transcript extraction ────────────────────────────────────────────
-
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
-
-/** Flatten a Claude Code content block (string or structured array) into text. */
-function contentToText(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-  const parts: string[] = [];
-  for (const block of content) {
-    if (typeof block === 'string') {
-      parts.push(block);
-    } else if (isRecord(block) && block.type === 'text' && typeof block.text === 'string') {
-      parts.push(block.text);
-    }
-  }
-  return parts.join('\n');
-}
-
-/**
- * Read a Claude Code JSONL transcript and return only the user/assistant text
- * turns. Tool results, non-text blocks, system-reminders, and slash-command
- * artefacts are filtered out.
- */
-export function readTranscript(transcriptPath: string): TranscriptTurn[] {
-  const turns: TranscriptTurn[] = [];
-  const fileContent = readFileSync(transcriptPath, 'utf-8');
-  for (const line of fileContent.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    let entry: unknown;
-    try {
-      entry = JSON.parse(trimmed);
-    } catch {
-      continue;
-    }
-
-    if (!isRecord(entry)) continue;
-    const msg = isRecord(entry.message) ? entry.message : entry;
-    const role = typeof msg.role === 'string' ? msg.role : undefined;
-    if (role !== 'user' && role !== 'assistant') continue;
-
-    const text = contentToText(msg.content).trim();
-    if (!text) continue;
-    if (text.startsWith('<system-reminder>') || text.startsWith('<command-name>')) continue;
-
-    turns.push({ role, text });
-  }
-  return turns;
-}
-
-/**
- * Format recent transcript turns as a markdown-ish context block for the
- * session log. Per-turn cap stops one oversized turn from devouring the
- * budget; total cap caps cumulative size. Walks turn boundaries explicitly
- * so headers aren't sliced through.
- */
 /**
  * Redact secrets from text before it goes anywhere persistent. Two passes:
  *
@@ -316,35 +257,5 @@ export function redactSecrets(text: string): string {
     .replace(/[A-Za-z0-9+/]{200,}={0,2}/g, '<REDACTED:BASE64>');
 
   return out;
-}
-
-export function extractConversationContext(
-  transcriptPath: string,
-  maxTurns: number = KNOWLEDGE.MAX_TRANSCRIPT_TURNS,
-  maxChars: number = KNOWLEDGE.MAX_TRANSCRIPT_CHARS,
-  maxTurnChars: number = KNOWLEDGE.MAX_TURN_CHARS
-): { context: string; turnCount: number } {
-  const recent = readTranscript(transcriptPath).slice(-maxTurns);
-
-  const formatted = recent.map((t) => {
-    const role = t.role === 'user' ? 'User' : 'Assistant';
-    const text =
-      t.text.length > maxTurnChars
-        ? `${t.text.slice(0, maxTurnChars)}\n[… ${t.text.length - maxTurnChars} chars truncated]`
-        : t.text;
-    return `**${role}:** ${text}\n`;
-  });
-
-  if (formatted.length === 0) return { context: '', turnCount: 0 };
-
-  const kept: string[] = [formatted[formatted.length - 1]];
-  let total = kept[0].length;
-  for (let i = formatted.length - 2; i >= 0; i--) {
-    if (total + formatted[i].length > maxChars) break;
-    kept.unshift(formatted[i]);
-    total += formatted[i].length;
-  }
-
-  return { context: redactSecrets(kept.join('\n')), turnCount: recent.length };
 }
 

@@ -1,6 +1,7 @@
 import { FOLDERS } from '@/config';
 import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'fs';
-import { dirname, relative } from 'path';
+import { homedir } from 'os';
+import { dirname, relative, resolve } from 'path';
 
 // ── Path helpers ──────────────────────────────────────────────────────
 
@@ -13,6 +14,18 @@ import { dirname, relative } from 'path';
 export function repoRelative(absolutePath: string): string {
   const rel = relative(FOLDERS.ROOT, absolutePath);
   return rel.startsWith('..') || rel === '' ? absolutePath : rel;
+}
+
+/**
+ * Expand `~` or `~/foo` to an absolute path under the user's home directory.
+ * Other paths return unchanged. `config.ts` keeps a local copy of this (the
+ * "config imports stdlib only" rule blocks it from importing this module);
+ * every other consumer should import from here to avoid duplication.
+ */
+export function expandTilde(path: string): string {
+  if (path === '~') return homedir();
+  if (path.startsWith('~/')) return resolve(homedir(), path.slice(2));
+  return path;
 }
 
 // ── Filesystem helpers ────────────────────────────────────────────────

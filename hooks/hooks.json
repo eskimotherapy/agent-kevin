@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/scripts/session-capture.ts\" session-end",
+            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/bin/kevin\" session-capture --mode=session-end --hook-protocol=claude",
             "timeout": 30
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/scripts/session-capture.ts\" pre-compact",
+            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/bin/kevin\" session-capture --mode=pre-compact --hook-protocol=claude",
             "timeout": 30
           }
         ]
