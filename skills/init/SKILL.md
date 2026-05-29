@@ -1,6 +1,6 @@
 ---
 name: init
-description: Guided first-run onboarding for the agent-kevin plugin. Walks through Kevin's character (SOUL), role (IDENTITY), your basics (name, timezone), an optional web pull from your blog/site/LinkedIn/etc., and communication style — then scaffolds CLAUDE.md (operating manual + @-imports), SOUL.md, IDENTITY.md, USER.md, and .claude/settings.json. If a CLAUDE.md already exists at the home directory, Kevin's version is written to CLAUDE.local.md instead. Skill packs are configured inline at the end or via /agent-kevin:configure-skills any time later. Invoke once after installing the plugin.
+description: Guided first-run onboarding for the agent-kevin plugin. Walks through Kevin's character (SOUL), role (IDENTITY), your basics (name, timezone), an optional web pull from your blog/site/LinkedIn/etc., and communication style — then scaffolds CLAUDE.md (operating manual + @-imports), SOUL.md, IDENTITY.md, USER.md, .claude/settings.json, and seeds four system-architecture concept articles into knowledge/concepts/. If a CLAUDE.md already exists at the home directory, Kevin's version is written to CLAUDE.local.md instead. Skill packs are configured inline at the end or via /agent-kevin:configure-skills any time later. Invoke once after installing the plugin.
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, AskUserQuestion, WebFetch, Bash(mkdir *), Bash(cp *), Bash(cat *), Bash(ls *), Bash(find *), Bash(git config *), Bash(readlink *), Bash(date *), Bash(echo *), Bash(test *), Bash([ *), Bash(grep *), Bash(printf *)
 ---
@@ -32,7 +32,8 @@ If `ALREADY_INITIALIZED`, `AskUserQuestion` with an explicit enumeration of what
 > ✓  Preserve `knowledge/memory/index.md` if it has content (compile output safe — Active Threads, Recent Decisions, Learnings)
 > ✓  Preserve `knowledge/index.md` if it has content (operator-curated catalog bullets safe)
 > ✓  Preserve `knowledge/user/<facet>.md` files that have content (operator-curated facets safe; conflict prompt if Step 5 also synthesises content)
-> ✓  Preserve `knowledge/concepts/`, `knowledge/raw/`, `projects/<slug>/` (never touched)
+> ✓  Preserve `knowledge/concepts/*.md` (seeded concepts re-materialise only if missing; existing files — including 0-byte tombstones — are never overwritten)
+> ✓  Preserve `knowledge/raw/`, `projects/<slug>/` (never touched)
 > ⚠️  Reset `projects/TASKS.md` (auto-rebuilds on next task mutation via `task_dashboard`)
 >
 > - Abort (recommended)
@@ -641,7 +642,12 @@ Long-form, evolving knowledge about the operator. Five facets, each updated as c
 
 ## Concepts (cross-cutting patterns)
 
-_(empty — compiled articles land here as `concepts/<slug>.md` after `/agent-kevin:knowledge-compile` runs)_
+Cross-cutting patterns spanning ≥2 projects. Synthesized insights, not project summaries. The four seeded below describe the system itself; new concepts land here as `concepts/<slug>.md` after `/agent-kevin:knowledge-compile` runs.
+
+- [[concepts/karpathy-wiki]] — LLM-maintained knowledge base architecture (the pattern behind this whole system)
+- [[concepts/markdown-native-task-management]] — File-per-task with YAML frontmatter, Obsidian UI, programmatic enforcement
+- [[concepts/self-evolution-loop]] — Feedback-driven prompt improvement: capture → compile → learnings → optional approved diffs
+- [[concepts/audit-premise-decay]] — Inherited audits, thresholds, and metrics drift; verify the premise (not just the recommendations) before executing
 
 ## Memory
 
@@ -689,6 +695,22 @@ _No weekly goals set yet._
 ```
 
 After scaffolding, call `mcp__plugin_agent-kevin_kevin__task_dashboard` once so the file has its (empty) Active/Blocked/Overdue/Stale/Recently Closed sections rendered from day one — no scaffold drift.
+
+**Seed concept articles — preservation-aware.** Four bundled concepts describe the system itself (the wiki pattern, the task system, the feedback loop, the audit-premise-decay heuristic). Seeding them means a freshly-initialised home has working `[[concepts/*]]` wikilinks from day one instead of broken refs, and the operator can read them to understand the architecture they just installed.
+
+```bash
+TODAY="$(date +%Y-%m-%d)"
+for src in "${CLAUDE_PLUGIN_ROOT}"/templates/knowledge/concepts/*.md; do
+  [ -f "$src" ] || continue
+  dest="$KNOWLEDGE_ROOT/concepts/$(basename "$src")"
+  if [ -f "$dest" ]; then
+    continue   # operator already has it — never overwrite
+  fi
+  sed "s/{{INIT_DATE}}/${TODAY}/g" "$src" > "$dest"
+done
+```
+
+Idempotent by file: any existing concept file is preserved (the `[ -f ]` check passes for empty files too — operators who want a seed permanently gone can `: > path/to/concept.md` to leave a 0-byte placeholder, rather than `rm`-ing it and getting it re-seeded on re-init).
 
 ---
 
@@ -738,6 +760,7 @@ Blank line, then the status block as plain prose (one row per line, two-space gu
 > ✅ Plugin reg    .claude/settings.json (auto-loads agent-kevin next launch — no `--plugin-dir` needed)
 > ✅ Knowledge     `<FACET_FILES_FILLED>/5` facets populated `<from blog · LinkedIn · GitHub, if Step 5 ran>`
 > ✅ Indexes       knowledge/index.md · knowledge/memory/index.md · projects/TASKS.md
+> ✅ Concepts      4 seeded: karpathy-wiki · markdown-native-task-management · self-evolution-loop · audit-premise-decay
 > `<SKILL_PACK_ROW>`
 > ⏳ Custom skills none — author with `/agent-kevin:configure-skills`
 
