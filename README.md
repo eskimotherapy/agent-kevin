@@ -50,7 +50,7 @@ graph LR
 - 📋 **Project lifecycles, not just chats.** Spin up projects with `/agent-kevin:create-project`, track tasks with status / priority / dependencies, archive cleanly when they're done. Markdown files. Obsidian-friendly. Git-friendly.
 - 🌅 **Daily, weekly, monthly cadences.** Morning briefings, evening wraps, weekly goals, monthly reviews. Built-in skills, run on demand.
 - 🔍 **SEO that audits itself.** Plug GSC + PageSpeed + SerpAPI, run `/agent-kevin:google-search-audit`, get a ranked-by-impact diagnostic report.
-- 🌐 **Web at your fingertips.** Bundled Playwright + chromium for screenshots, styled PDFs (markdown + mermaid rendered), scripted page recordings. Optional Perplexity for live web research.
+- 🌐 **Web at your fingertips.** Bundled Playwright + chromium for screenshots, styled PDFs (markdown + mermaid rendered), URL → clean Markdown (handles SPAs), scripted page recordings. Optional Perplexity for live web research.
 - 🏠 **Multiple homes, multiple personas.** One personal Kevin, one work Kevin, one SEO Kevin. Same plugin, different brains.
 - ✅ **Subscription-billed**, not API-billed (see [Claude Code Billing](#claude-code-billing)).
 
@@ -330,6 +330,37 @@ The status block reads from the **dust-settled artifacts** (`projects/TASKS.md`,
 
 ---
 
+## 🌐 Playwright web tools
+
+Four MCP tools backed by a bundled chromium (installed once via `bun install`'s playwright postinstall, ~150MB). All four output to `<HOME>/.kevin/captures/<timestamp>-<name>.<ext>`. The Browser pack must be active (`/agent-kevin:configure-skills` → tick Browser pack) for the permissions to be pre-granted; without it the first call confirms.
+
+| Tool | Output | Use it for |
+|---|---|---|
+| `playwright_screenshot` | PNG | Visual snapshot of any URL or local HTML / MD file; optional `fullPage` for the whole scrolling page |
+| `playwright_pdf` | PDF (A4) | Render markdown (with mermaid diagrams) or HTML to print-styled PDF |
+| `playwright_markdown` | Markdown | Convert any URL — including SPAs / Next.js / React sites — to clean LLM-friendly Markdown. Loads in chromium so client-rendered sections hydrate; pipes through Mozilla Readability + Turndown |
+| `playwright_record` | WebM video | Drive a page through scripted steps (`navigate` / `scroll` / `wait`) and capture the run |
+
+**All four take the same `input`** — a URL, a `file://` URL, or an absolute/relative path. `screenshot` and `pdf` will also render local Markdown files (loading them through `marked` + a styled CSS so mermaid renders). `markdown` does the reverse — fetches a hydrated page and converts back to Markdown.
+
+**In a conversation (the common case)** — just ask:
+
+```
+you  > screenshot https://walapay.io and call it walapay-landing
+kevin > [calls playwright_screenshot(input=…, name=walapay-landing)] → .kevin/captures/<ts>-walapay-landing.png
+
+you  > render ~/Documents/business-plan.md to PDF
+kevin > [calls playwright_pdf(input=…)] → .kevin/captures/<ts>-pdf.pdf  (mermaid diagrams come through)
+
+you  > convert https://basem.emara.io to markdown — make sure the JS-rendered sections come through
+kevin > [calls playwright_markdown(input=…, waitUntil=networkidle)] → .kevin/captures/<ts>-markdown.md
+
+you  > record a 15-second tour of agentlayer.one — scroll halfway, wait 2s, scroll to the bottom
+kevin > [calls playwright_record(input=…, steps=[{kind:scroll,pixels:600},{kind:wait,ms:2000},{kind:scroll,pixels:9999}])] → .kevin/captures/<ts>-record.webm
+```
+
+---
+
 ## 🌱 Self-evolution: Kevin gets better the more you use him
 
 ```mermaid
@@ -468,7 +499,11 @@ Four need API keys (SerpAPI, OpenPageRank, Google OAuth + `GSC_SITE_URL` for the
 ### Browser pack, configured on demand
 
 - **Perplexity**, live web search with citations (`mcp__plugin_agent-kevin_kevin__perplexity_search`). Built into the `kevin` MCP server — direct call to the Perplexity Search API, no extra subprocess. Activate the tool via `/agent-kevin:configure-skills` (grants the permission + ensures a `PERPLEXITY_API_KEY` placeholder in `settings.local.json`), then fill the key value in your editor — `configure-skills` never asks for it in chat, since pasted secrets touch the transcript and the Anthropic API. Way better answers than vanilla web-search and dirt-cheap on pay-as-you-go: $5 of credit lasts most personal users several days to several weeks depending on query volume. Get a key at [perplexity.ai/settings/api](https://perplexity.ai/settings/api).
-- **Playwright**, screenshot any URL, render any markdown to a styled PDF (with mermaid diagrams), record scripted page interactions. Chromium ships in the one-time `bun install`.
+- **Playwright**, four web tools backed by a bundled chromium (drops in via the one-time `bun install`). See [Playwright web tools](#-playwright-web-tools) below for the full set, or here's the short of it:
+  - `playwright_screenshot` — PNG of any URL or local HTML/MD file
+  - `playwright_pdf` — styled PDF (markdown + mermaid rendered)
+  - `playwright_markdown` — JS-rendered page → clean Markdown via Readability
+  - `playwright_record` — scripted page interactions → WebM video
 
 ### Third-party skill libraries
 
@@ -479,14 +514,14 @@ Installed on demand via [skills.sh](https://skills.sh). Pure-prompt content/mark
 
 Install: `/agent-kevin:configure-skills` → tick "Third-party libraries".
 
-### MCP tools (28)
+### MCP tools (30)
 
 | Group | Tools |
 |---|---|
 | **Tasks** (8) | `task_query`, `task_get`, `task_create`, `task_update`, `task_close`, `task_thread`, `task_scan`, `task_dashboard` |
 | **Knowledge** (7) | `capture`, `memory_prune`, `links_rewrite`, `knowledge_lint`, `compile_status`, `compile_next`, `compile_write` |
 | **Reports** (1) | `report_write` |
-| **Dispatch** (13) | `serpapi_search`, `open_page_rank`, `google_auth`, `gsc_query`, `gsc_inspect`, `gsc_sites`, `page_speed_psi`, `page_speed_audit`, `playwright_screenshot`, `playwright_pdf`, `playwright_record`, `perplexity_search`, `ping` |
+| **Dispatch** (14) | `serpapi_search`, `open_page_rank`, `google_auth`, `gsc_query`, `gsc_inspect`, `gsc_sites`, `page_speed_psi`, `page_speed_audit`, `playwright_screenshot`, `playwright_pdf`, `playwright_markdown`, `playwright_record`, `perplexity_search`, `ping` |
 
 **Always-on core** (`ping`, `compile_*`, `task_*`, `knowledge_lint`, `memory_prune`, `links_rewrite`, `report_write`) is pre-granted via `permissions.allow` at init. **Pack-gated** tools (SEO: `serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth`; Browser: `perplexity_search`, `playwright_*`) only land in `permissions.allow` when you activate the matching pack via `/agent-kevin:configure-skills`. This keeps `settings.json` an accurate audit trail — it advertises only the packs you actually opted into.
 

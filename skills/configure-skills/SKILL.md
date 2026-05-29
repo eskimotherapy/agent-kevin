@@ -182,7 +182,7 @@ If yes:
 > - Yes — grant permissions
 > - Skip
 
-If yes: add `playwright_screenshot`, `playwright_pdf`, `playwright_record` to `permissions.allow` via §E.
+If yes: add `playwright_screenshot`, `playwright_pdf`, `playwright_markdown`, `playwright_record` to `permissions.allow` via §E.
 
 Then verify the chromium binary is in place (the plugin's postinstall handles this):
 
@@ -300,7 +300,7 @@ Print per library: install status + symlink path + upstream LICENSE first-line. 
 - If yes: read `$SETTINGS_FILE`, delete those keys from `env`, write back.
 
 **Browser deconfigure:**
-- Revoke Browser-gated MCP tool grants from `permissions.allow` (§E remove helper): `perplexity_search`, `playwright_screenshot`, `playwright_pdf`, `playwright_record`. Always-on core stays.
+- Revoke Browser-gated MCP tool grants from `permissions.allow` (§E remove helper): `perplexity_search`, `playwright_screenshot`, `playwright_pdf`, `playwright_markdown`, `playwright_record`. Always-on core stays.
 - `AskUserQuestion`: "Remove `PERPLEXITY_API_KEY` from `$SETTINGS_FILE`?" (Yes/No). If yes, delete via §D.
 - Do **not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a project-registered server.
 - Remind user: playwright + chromium stay installed (part of plugin base deps); only the permission grants get removed.
@@ -400,6 +400,7 @@ Example final shape — `/init` always-on baseline + **both** SEO and Browser ac
       "mcp__plugin_agent-kevin_kevin__page_speed_psi",
       "mcp__plugin_agent-kevin_kevin__perplexity_search",
       "mcp__plugin_agent-kevin_kevin__ping",
+      "mcp__plugin_agent-kevin_kevin__playwright_markdown",
       "mcp__plugin_agent-kevin_kevin__playwright_pdf",
       "mcp__plugin_agent-kevin_kevin__playwright_record",
       "mcp__plugin_agent-kevin_kevin__playwright_screenshot",

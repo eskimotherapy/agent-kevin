@@ -16,11 +16,12 @@
  */
 
 import { FOLDERS } from '@/config';
+import { htmlToMarkdown, renderExtracted } from '@/shared/html-to-markdown';
 import { log } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { marked } from 'marked';
 import { existsSync, mkdirSync, rmdirSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 
@@ -48,6 +49,7 @@ interface ChromiumLike {
           html: string,
           opts?: { waitUntil?: 'load' | 'networkidle' | 'domcontentloaded' }
         ) => Promise<unknown>;
+        content: () => Promise<string>;
         screenshot: (opts?: { fullPage?: boolean; path?: string }) => Promise<Buffer>;
         pdf: (opts?: { path?: string; format?: string }) => Promise<Buffer>;
         evaluate: (fn: (px: number) => void, arg: number) => Promise<void>;
@@ -283,6 +285,49 @@ export const tools: ToolDef[] = [
         await loadInto(page, target);
         await page.pdf({ path: outPath, format: 'A4' });
         log.info(`pdf -> ${outPath}`);
+      } finally {
+        await browser.close();
+      }
+      return { path: outPath };
+    }
+  }),
+  defineTool({
+    name: 'playwright_markdown',
+    description:
+      'Render a URL or local file in chromium so JS-rendered content hydrates, then extract the article body via Mozilla Readability and convert to Markdown. Output saved to .kevin/captures/<ts>-<name>.md. Use this for SPAs / Next.js / React sites where raw fetch() misses client-rendered sections. Requires the Browser pack installed.',
+    inputSchema: {
+      input: z.string().describe('URL, file:// URL, or absolute/relative path'),
+      name: z.string().optional().describe('Optional output filename hint'),
+      waitUntil: z
+        .enum(['load', 'networkidle', 'domcontentloaded'])
+        .optional()
+        .describe('Page load condition (default: networkidle — waits for JS/XHR to settle)')
+    },
+    handler: async ({ input, name, waitUntil }) => {
+      const chromium = await getChromium();
+      const target = normalizeInput(input);
+      const outPath = captureFilename('markdown', 'md', name);
+      const browser = await chromium.launch({ headless: true });
+      try {
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        if (target.isFile && target.filePath && MARKDOWN_EXT.test(target.filePath)) {
+          // Local .md file → no extraction needed, just read as-is. We still
+          // load it in the browser so behaviour is symmetric with the other
+          // playwright_* tools, but skip Readability since the file is
+          // already markdown.
+          const raw = await readFile(target.filePath, 'utf-8');
+          await writeFile(outPath, raw, 'utf-8');
+          log.info(`markdown (passthrough) -> ${outPath}`);
+          return { path: outPath };
+        }
+        await page.goto(target.url, { waitUntil: waitUntil ?? 'networkidle' });
+        const html = await page.content();
+        const extracted = await htmlToMarkdown(html);
+        const sourceLine = target.isFile ? '' : `Source: ${target.url}\n\n`;
+        const markdown = sourceLine + renderExtracted(extracted);
+        await writeFile(outPath, markdown, 'utf-8');
+        log.info(`markdown -> ${outPath}`);
       } finally {
         await browser.close();
       }
