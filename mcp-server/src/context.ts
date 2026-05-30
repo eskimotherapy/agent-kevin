@@ -14,13 +14,9 @@ import { CONTEXT, EXTRA_GIT_REPOS, FILES, FOLDERS, TIMEZONE } from '@/config';
 import { execSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
-import {
-  FIRST_SESSION_HEADER_RE,
-  SESSION_BLOCK_SEPARATOR_RE,
-  TRAILING_SEPARATOR_RE,
-} from './knowledge/session-format';
+import { FIRST_SESSION_HEADER_RE, SESSION_BLOCK_SEPARATOR_RE, TRAILING_SEPARATOR_RE } from './knowledge/session-format';
 
-interface ManifestEntry {
+export interface ManifestEntry {
   label: string;
   status: 'loaded' | 'missing' | 'unavailable';
   bytes: number;
@@ -85,7 +81,10 @@ async function lastSessionTail(maxBytes: number): Promise<TailResult> {
       // try previous day
     }
   }
-  return { content: null, entry: { label: 'session tail', status: 'missing', bytes: 0 } };
+  return {
+    content: null,
+    entry: { label: 'session tail', status: 'missing', bytes: 0 }
+  };
 }
 
 interface ReportsResult {
@@ -104,13 +103,24 @@ async function todaysReports(maxBytes: number): Promise<ReportsResult> {
   try {
     raw = await readFile(FILES.REPORTS_INDEX, 'utf-8');
   } catch {
-    return { content: null, entry: { label: "today's reports", status: 'missing', bytes: 0 } };
+    return {
+      content: null,
+      entry: { label: "today's reports", status: 'missing', bytes: 0 }
+    };
   }
 
   const lines = raw.split('\n');
   const headingIdx = lines.findIndex((line) => line.trim() === `## ${today}`);
   if (headingIdx === -1) {
-    return { content: null, entry: { label: "today's reports", status: 'missing', bytes: 0, note: 'no entries today' } };
+    return {
+      content: null,
+      entry: {
+        label: "today's reports",
+        status: 'missing',
+        bytes: 0,
+        note: 'no entries today'
+      }
+    };
   }
 
   // Take lines after the heading until the next `## ` heading or EOF.
@@ -121,7 +131,15 @@ async function todaysReports(maxBytes: number): Promise<ReportsResult> {
   while (sectionLines.length > 0 && sectionLines[0]?.trim() === '') sectionLines.shift();
   while (sectionLines.length > 0 && sectionLines[sectionLines.length - 1]?.trim() === '') sectionLines.pop();
   if (sectionLines.length === 0) {
-    return { content: null, entry: { label: "today's reports", status: 'missing', bytes: 0, note: 'heading empty' } };
+    return {
+      content: null,
+      entry: {
+        label: "today's reports",
+        status: 'missing',
+        bytes: 0,
+        note: 'heading empty'
+      }
+    };
   }
 
   let body = sectionLines.join('\n');
@@ -172,7 +190,21 @@ export interface AssembledContext {
   hasIssues: boolean;
 }
 
-export async function assembleContext(): Promise<AssembledContext> {
+interface GatheredContext {
+  dateStr: string;
+  entries: ManifestEntry[];
+  /** Assembled markdown parts, joined by the caller. */
+  parts: string[];
+}
+
+/**
+ * Gather the dynamic SessionStart context once: today's date, last-session
+ * tail, today's reports, and recent git activity across the tracked repos.
+ * Shared by `assembleContext` (which renders the hook payload) and
+ * `contextManifest` (which exposes the structured manifest for the status
+ * screen) so the two never drift.
+ */
+async function gatherContext(): Promise<GatheredContext> {
   const tail = await lastSessionTail(CONTEXT.SESSION_TAIL_BYTES);
   const reports = await todaysReports(CONTEXT.REPORTS_BYTES);
 
@@ -188,7 +220,10 @@ export async function assembleContext(): Promise<AssembledContext> {
     { label: 'knowledge', path: FOLDERS.KNOWLEDGE },
     ...EXTRA_GIT_REPOS.map((path) => ({ label: basename(path), path }))
   ];
-  const gitLogs = repos.map((repo) => ({ ...repo, output: recentGitLog(repo.path) }));
+  const gitLogs = repos.map((repo) => ({
+    ...repo,
+    output: recentGitLog(repo.path)
+  }));
 
   const entries: ManifestEntry[] = [
     tail.entry,
@@ -210,6 +245,11 @@ export async function assembleContext(): Promise<AssembledContext> {
     .map((log) => `### ${log.label}\n\n\`\`\`\n${log.output}\n\`\`\``);
   if (gitSections.length > 0) parts.push(`## Recent Git Activity\n\n${gitSections.join('\n\n')}`);
 
+  return { dateStr, entries, parts };
+}
+
+export async function assembleContext(): Promise<AssembledContext> {
+  const { entries, parts } = await gatherContext();
   let context = parts.join('\n\n---\n\n');
   if (context.length > CONTEXT.MAX_CHARS) {
     context = context.slice(0, CONTEXT.MAX_CHARS) + '\n\n...(truncated)';
@@ -217,4 +257,18 @@ export async function assembleContext(): Promise<AssembledContext> {
   const banner = renderBanner(entries, context.length);
   const hasIssues = entries.some((e) => e.status !== 'loaded');
   return { context, banner, hasIssues };
+}
+
+export interface ContextManifest {
+  date: string;
+  entries: ManifestEntry[];
+  bytes: number;
+}
+
+/** Structured view of the dynamic SessionStart context — consumed by the
+ *  `status` screen's Context Assembly tab. */
+export async function contextManifest(): Promise<ContextManifest> {
+  const { dateStr, entries, parts } = await gatherContext();
+  const bytes = Math.min(parts.join('\n\n---\n\n').length, CONTEXT.MAX_CHARS);
+  return { date: dateStr, entries, bytes };
 }

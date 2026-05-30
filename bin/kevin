@@ -120,6 +120,7 @@ Groups:
   knowledge                         Wiki maintenance (lint)
   prune                             Delete memory/YYYY-MM-DD*.md older than 14 days
   links                             Rewrite bare task IDs + shorthand into [[wikilinks]]
+  status                            Aesthetic command-center overview (skills, mcp, hooks, knowledge, tasks, settings, logs) [--color=auto|always|never] [--no-banner]
 
 Task commands:
   task query [--status=X] [--priority=P0-P3] [--project=NAME]
@@ -498,6 +499,40 @@ async function run(): Promise<void> {
     const { rewriteAllWikilinks } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/knowledge/links'));
     const modified = await rewriteAllWikilinks();
     console.log(JSON.stringify({ modified, count: modified.length }, null, 2));
+    return;
+  }
+
+  if (group === 'status') {
+    const { renderStatus, isTab } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/status/render'));
+    // `status` takes an optional tab name + flags, all landing in command+args.
+    const statusArgs = [command, ...args].filter(Boolean);
+    const tabArg = statusArgs.find((a) => !a.startsWith('-'));
+    const tab = tabArg && isTab(tabArg) ? tabArg : undefined;
+    const colorFlag = statusArgs.find((a) => a.startsWith('--color='))?.slice('--color='.length);
+    const color = colorFlag === 'always' || colorFlag === 'never' ? colorFlag : 'auto';
+
+    // Interactive TUI when in a real terminal; static single-tab render when
+    // piped/captured (e.g. invoked through Claude) or when --static/never-color.
+    const interactive =
+      Boolean(process.stdout.isTTY && process.stdin.isTTY) &&
+      !statusArgs.includes('--static') &&
+      color !== 'never';
+    if (interactive) {
+      const { runInteractive } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/status/interactive'));
+      await runInteractive(tab ?? 'overview');
+      return;
+    }
+
+    console.log(
+      await renderStatus({
+        tab,
+        color,
+        // undefined → banner only on the overview; --no-banner forces it off.
+        banner: statusArgs.includes('--no-banner') ? false : undefined
+        // No tab-bar/footer in static (non-TTY) output — tabs aren't switchable
+        // there; switching is a terminal-only (interactive TUI) affordance.
+      })
+    );
     return;
   }
 

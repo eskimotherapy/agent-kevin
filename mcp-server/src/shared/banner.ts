@@ -11,12 +11,15 @@ const YELLOW_BOLD = `${ESC}1m${ESC}33m`;
 const CYAN_BOLD = `${ESC}1m${ESC}36m`;
 const RESET = `${ESC}0m`;
 
-const AGENT_LINES = [' ╔═╗ ╔═╗ ╔═╗ ╔╗╔ ╔╦╗', ' ╠═╣ ║ ╦ ║╣  ║║║  ║ ', ' ╩ ╩ ╚═╝ ╚═╝ ╝╚╝  ╩ '] as const;
-const KEVIN = '===KEVIN=== 🍌';
+/** Raw (uncolored) wordmark lines + tagline. Exported so other surfaces (e.g.
+ *  the `status` screen) can re-colorize them under their own color policy
+ *  without inheriting this module's hardcoded SessionStart palette. */
+export const BANNER_LINES = [' ╔═╗ ╔═╗ ╔═╗ ╔╗╔ ╔╦╗', ' ╠═╣ ║ ╦ ║╣  ║║║  ║ ', ' ╩ ╩ ╚═╝ ╚═╝ ╝╚╝  ╩ '] as const;
+export const BANNER_TAG = '===KEVIN=== 🍌';
 
 const colorize = (text: string, color: string): string => `${color}${text}${RESET}`;
 
 export const BANNER = [
-  ...AGENT_LINES.map((line) => colorize(line, YELLOW_BOLD)),
-  colorize(KEVIN, CYAN_BOLD)
+  ...BANNER_LINES.map((line) => colorize(line, YELLOW_BOLD)),
+  colorize(BANNER_TAG, CYAN_BOLD)
 ].join('\n');
