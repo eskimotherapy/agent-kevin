@@ -34,6 +34,25 @@ This isn't a chat wrapper. It's an **operating system for personal AI**:
 
 ---
 
+## 🛰️ The Command Center
+
+<div align="center">
+<img src="assets/agent-control-center.png" alt="Kevin command center" width="720" />
+</div>
+
+There's a lot going on inside an agent. The **command center** is a single screen that shows the whole picture at a glance — skills, MCP tools, hooks, the knowledge wiki and compile coverage, tasks across every project, the **context that loads each session** (static `@-imports` + the dynamic SessionStart manifest), layered settings (secrets redacted), and logs. A system-status badge up top tells you in one glance whether anything needs attention.
+
+**How to open it:**
+
+- In Claude Code, run **`/agent-kevin:status`** — it renders a clean, static overview right in the conversation.
+- Drill into any area with `kevin status <tab>` — `overview · context · knowledge · work · system · settings`.
+
+**It's more alive in your terminal.** Run `kevin status` directly in a real terminal and it launches an **interactive TUI**: a banner, a tab bar, and live tab-switching with the **arrow keys** (`q` to quit). Piped or captured through Claude, it auto-detects the non-interactive context and falls back to the static overview — so the same command does the right thing in both places.
+
+It's read-only. It never mutates anything; it just reflects what Kevin is right now.
+
+---
+
 ## 💡 Why you'll want one
 
 ```mermaid
