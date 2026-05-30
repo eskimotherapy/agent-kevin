@@ -182,7 +182,11 @@ export interface StatusSnapshot {
 }
 
 const MARKDOWN_RE = /\.md$/;
-const SECRET_KEY_RE = /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CRED|PRIVATE|OAUTH|SESSION)/i;
+const SECRET_KEY_RE =
+  /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CRED|PRIVATE|OAUTH|SESSION|DB_URL|DB_URI|DATABASE|DSN|CONN|MCP_DB)/i;
+/** A connection string with embedded credentials — `scheme://user:pass@host`.
+ *  Caught by value so DB URLs are masked regardless of their env-var name. */
+const CRED_URL_RE = /:\/\/[^\s:@/]+:[^\s@/]+@/;
 
 /** Count entries in a directory matching a predicate; 0 if the dir is absent. */
 const countDir = (dir: string, predicate: (name: string) => boolean): number => {
@@ -582,7 +586,7 @@ const collectSettings = (): StatusSnapshot['settings'] => {
 
   const redactedEnv: EnvEntry[] = [...env.entries()].map(([key, entry]) => ({
     key,
-    value: SECRET_KEY_RE.test(key) ? maskValue(entry.value) : entry.value,
+    value: SECRET_KEY_RE.test(key) || CRED_URL_RE.test(entry.value) ? maskValue(entry.value) : entry.value,
     scope: entry.scope
   }));
 

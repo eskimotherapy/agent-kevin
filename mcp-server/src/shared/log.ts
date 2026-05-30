@@ -37,7 +37,7 @@ const LEVEL_ORDER: Record<Level, number> = {
   debug: 0,
   info: 1,
   warn: 2,
-  error: 3,
+  error: 3
 };
 
 // ── Config ────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ const SENSITIVE_KEYS = [
   'PERPLEXITY_API_KEY',
   'SERPAPI_KEY',
   'OPENPAGERANK_API_KEY',
-  'GOOGLE_OAUTH_CLIENT_SECRET',
+  'GOOGLE_OAUTH_CLIENT_SECRET'
 ] as const;
 
 // ── Rotation helpers ──────────────────────────────────────────────────
@@ -94,6 +94,7 @@ function rotateIfNeeded(logFile: string): void {
 const TOKEN_PATTERNS: RegExp[] = [
   /\bBearer\s+[A-Za-z0-9._-]+/gi, // Authorization: Bearer <token>
   /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, // JWTs
+  /\b[a-z][a-z0-9+.-]*:\/\/[^\s/@]+:[^\s/@]+@\S+/gi // connection strings: scheme://user:pass@host
 ];
 
 function scrub(str: string): string {
@@ -112,7 +113,7 @@ function serializeMeta(meta: unknown): string {
   if (meta instanceof Error) {
     return JSON.stringify({
       error: scrub(meta.message),
-      stack: meta.stack?.split('\n').slice(0, 3).map(scrub).join(' <- '),
+      stack: meta.stack?.split('\n').slice(0, 3).map(scrub).join(' <- ')
     });
   }
   try {
@@ -182,7 +183,7 @@ function subLogger(scope: string, transform: (msg: string) => string): Logger {
     with: (prefix) => {
       const getPrefix = typeof prefix === 'function' ? prefix : () => prefix;
       return subLogger(scope, (msg) => transform(`[${getPrefix()}] ${msg}`));
-    },
+    }
   };
 }
 
@@ -206,5 +207,5 @@ export const log = {
   tasks: createLogger('📋 tasks'),
   session: createLogger('🪝 session'),
   tools: createLogger('🔧 tools'),
-  mcp: createLogger('🛰 mcp'),
+  mcp: createLogger('🛰 mcp')
 };

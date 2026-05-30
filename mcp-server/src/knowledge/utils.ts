@@ -121,7 +121,9 @@ export async function wikiArticleExists(link: string, taskTargets?: Set<string>)
     resolve(FOLDERS.HOME, normalized + '.md')
   ];
   for (const candidate of fileCandidates) {
-    const found = await stat(candidate).then(() => true).catch(() => false);
+    const found = await stat(candidate)
+      .then(() => true)
+      .catch(() => false);
     if (found) return true;
   }
 
@@ -240,6 +242,8 @@ export function redactSecrets(text: string): string {
     .replace(/\bAIza[A-Za-z0-9_-]{30,}/g, '<REDACTED:GOOGLE_API_KEY>')
     // GitHub PAT/OAuth/server/user/app: ghp_, gho_, ghs_, ghu_, gha_
     .replace(/\bgh[pousa]_[A-Za-z0-9]{30,}/g, '<REDACTED:GITHUB_TOKEN>')
+    // Connection strings with embedded credentials: scheme://user:pass@host
+    .replace(/\b[a-z][a-z0-9+.-]*:\/\/[^\s/@]+:[^\s/@]+@\S+/gi, '<REDACTED:DB_URL>')
     // Generic URL-query / form-param secrets — catches any provider whose key
     // doesn't have a recognisable prefix (e.g. SerpAPI's 64-char hex passed as
     // `?api_key=...`). Defense-in-depth behind Pass 1's exact-match scrub.
@@ -250,12 +254,8 @@ export function redactSecrets(text: string): string {
 
   // Pass 3: base64 blobs. Data URIs first so the mime prefix survives.
   out = out
-    .replace(
-      /(data:[\w.+-]+\/[\w.+-]+;base64,)[A-Za-z0-9+/]{40,}={0,2}/g,
-      '$1<REDACTED:BASE64>'
-    )
+    .replace(/(data:[\w.+-]+\/[\w.+-]+;base64,)[A-Za-z0-9+/]{40,}={0,2}/g, '$1<REDACTED:BASE64>')
     .replace(/[A-Za-z0-9+/]{200,}={0,2}/g, '<REDACTED:BASE64>');
 
   return out;
 }
-
