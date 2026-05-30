@@ -33,15 +33,14 @@ interface ModeConfig {
 
 const MODES: Record<CaptureMode, ModeConfig> = {
   'session-end': { heading: 'Session', minTurns: 1 },
-  'pre-compact': { heading: 'Pre-Compact', minTurns: 5 },
+  'pre-compact': { heading: 'Pre-Compact', minTurns: 5 }
 };
 
 // ── Transcript extractors ────────────────────────────────────────────
 
 type Extractor = (transcriptPath: string) => TranscriptTurn[];
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null;
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
 
 /** Flatten a Claude Code content block (string or structured array) into text. */
 function claudeContentToText(content: unknown): string {
@@ -93,7 +92,7 @@ const claudeExtractor: Extractor = (transcriptPath) => {
 };
 
 const EXTRACTORS: Record<CaptureFormat, Extractor> = {
-  claude: claudeExtractor,
+  claude: claudeExtractor
 };
 
 // ── Defer + exclusion helpers ────────────────────────────────────────
@@ -113,7 +112,7 @@ function pluginEnabledInCwd(cwd: string): boolean {
       enabledPlugins?: Record<string, boolean>;
     };
     return Object.entries(settings.enabledPlugins ?? {}).some(
-      ([key, enabled]) => enabled === true && key.startsWith(`${PLUGIN_NAME}@`),
+      ([key, enabled]) => enabled === true && key.startsWith(`${PLUGIN_NAME}@`)
     );
   } catch {
     return false;

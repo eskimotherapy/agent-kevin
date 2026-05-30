@@ -84,7 +84,9 @@ async function checkBrokenLinks(articles: Map<string, string>): Promise<LintIssu
     extractWikilinks(content).map((link) => ({ relPath, link }))
   );
   const taskTargets = await loadTaskTargets();
-  const results = await Promise.all(checks.map(async ({ relPath, link }) => ({ relPath, link, exists: await wikiArticleExists(link, taskTargets) })));
+  const results = await Promise.all(
+    checks.map(async ({ relPath, link }) => ({ relPath, link, exists: await wikiArticleExists(link, taskTargets) }))
+  );
   return results
     .filter(({ exists }) => !exists)
     .map(({ relPath, link }) => ({
@@ -163,20 +165,24 @@ async function checkSparseArticles(articles: Map<string, string>): Promise<LintI
     const body = content.replace(/^---[\s\S]*?---\n*/, '');
     const wordCount = body.split(/\s+/).filter(Boolean).length;
     if (wordCount < SPARSE_WARN_THRESHOLD) {
-      return [{
-        check: 'Sparse articles',
-        severity: 'warning',
-        message: `${relPath} has only ${wordCount} words (severely sparse, threshold: ${SPARSE_WARN_THRESHOLD})`,
-        file: relPath
-      }];
+      return [
+        {
+          check: 'Sparse articles',
+          severity: 'warning',
+          message: `${relPath} has only ${wordCount} words (severely sparse, threshold: ${SPARSE_WARN_THRESHOLD})`,
+          file: relPath
+        }
+      ];
     }
     if (wordCount < SPARSE_SUGGEST_THRESHOLD) {
-      return [{
-        check: 'Sparse articles',
-        severity: 'suggestion',
-        message: `${relPath} has only ${wordCount} words (threshold: ${SPARSE_SUGGEST_THRESHOLD})`,
-        file: relPath
-      }];
+      return [
+        {
+          check: 'Sparse articles',
+          severity: 'suggestion',
+          message: `${relPath} has only ${wordCount} words (threshold: ${SPARSE_SUGGEST_THRESHOLD})`,
+          file: relPath
+        }
+      ];
     }
     return [];
   });
@@ -259,9 +265,15 @@ async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIss
   const totalKB = (totalBytes / 1024).toFixed(1);
 
   if (totalBytes > MEMORY_TOTAL_ERROR_BYTES) {
-    push('error', `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB Claude Code warning threshold (loads into every session). Rewrite against per-section budgets in mcp-server/src/knowledge/compile.md.`);
+    push(
+      'error',
+      `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB Claude Code warning threshold (loads into every session). Rewrite against per-section budgets in mcp-server/src/knowledge/compile.md.`
+    );
   } else if (totalBytes > MEMORY_TOTAL_WARN_BYTES) {
-    push('warning', `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_WARN_BYTES / 1000}KB hard budget (warning fires at ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB). Compress at next compile.`);
+    push(
+      'warning',
+      `${MEMORY_INDEX_PATH} is ${totalKB}KB — exceeds ${MEMORY_TOTAL_WARN_BYTES / 1000}KB hard budget (warning fires at ${MEMORY_TOTAL_ERROR_BYTES / 1000}KB). Compress at next compile.`
+    );
   }
 
   const sections = parseMemorySections(content);
@@ -272,18 +284,27 @@ async function checkMemoryBudget(articles: Map<string, string>): Promise<LintIss
     const bullets = extractTopLevelBullets(section);
 
     if (bytes > cfg.maxBytes) {
-      push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} is ${(bytes / 1024).toFixed(1)}KB (budget ${cfg.maxBytes / 1000}KB). Demote older entries or collapse multi-sentence bullets to pointers.`);
+      push(
+        'warning',
+        `${MEMORY_INDEX_PATH} § ${cfg.name} is ${(bytes / 1024).toFixed(1)}KB (budget ${cfg.maxBytes / 1000}KB). Demote older entries or collapse multi-sentence bullets to pointers.`
+      );
     }
     const maxBullets = cfg.maxBullets;
     if (maxBullets !== undefined && bullets.length > maxBullets) {
-      push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} has ${bullets.length} bullets (budget ${maxBullets}). Demote lowest-priority / least-recently-touched ones.`);
+      push(
+        'warning',
+        `${MEMORY_INDEX_PATH} § ${cfg.name} has ${bullets.length} bullets (budget ${maxBullets}). Demote lowest-priority / least-recently-touched ones.`
+      );
     }
     const maxBulletChars = cfg.maxBulletChars;
     if (maxBulletChars !== undefined) {
       const oversized = bullets.filter((b) => b.length > maxBulletChars);
       if (oversized.length > 0) {
         const longest = Math.max(...oversized.map((b) => b.length));
-        push('warning', `${MEMORY_INDEX_PATH} § ${cfg.name} has ${oversized.length} bullet(s) over ${maxBulletChars} chars (longest: ${longest}). Each bullet is a pointer, not a recap — push detail into the linked task / daily memory.`);
+        push(
+          'warning',
+          `${MEMORY_INDEX_PATH} § ${cfg.name} has ${oversized.length} bullet(s) over ${maxBulletChars} chars (longest: ${longest}). Each bullet is a pointer, not a recap — push detail into the linked task / daily memory.`
+        );
       }
     }
   }
@@ -342,7 +363,6 @@ function extractTopLevelBullets(section: string): string[] {
   if (current !== null) bullets.push(current);
   return bullets;
 }
-
 
 export const stripFrontmatter = stripFrontmatterShared;
 

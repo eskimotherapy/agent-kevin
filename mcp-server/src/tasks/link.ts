@@ -108,4 +108,3 @@ export const rewriteLinks = (text: string, taskMap: Map<string, string>): string
 
   return frontmatter + out;
 };
-

@@ -27,7 +27,11 @@ export const discoverProjects = (): string[] => {
  */
 const derivePrefix = (slug: string): string => {
   const parts = slug.toLowerCase().split('-').filter(Boolean);
-  if (parts.length >= 2) return parts.slice(0, 2).map((p) => p[0]).join('');
+  if (parts.length >= 2)
+    return parts
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join('');
   return slug.slice(0, 2).toLowerCase();
 };
 
@@ -52,8 +56,7 @@ const inferPrefixFromTasks = (project: string): string | null => {
 };
 
 /** Resolve a project's task-id prefix. Prefers existing tasks; falls back to slug derivation. */
-export const getProjectPrefix = (project: string): string =>
-  inferPrefixFromTasks(project) ?? derivePrefix(project);
+export const getProjectPrefix = (project: string): string => inferPrefixFromTasks(project) ?? derivePrefix(project);
 
 /**
  * Build the prefix → project map by walking the filesystem. On collisions

@@ -128,10 +128,7 @@ async function buildFeedbackPrompt(): Promise<string> {
 
 async function buildInboxPrompt(inboxPath: string): Promise<string> {
   const fileName = basename(inboxPath);
-  const [inboxContent, wikiIndex] = await Promise.all([
-    readFile(inboxPath, 'utf-8'),
-    readWikiIndex()
-  ]);
+  const [inboxContent, wikiIndex] = await Promise.all([readFile(inboxPath, 'utf-8'), readWikiIndex()]);
   return renderTemplate(INBOX_TEMPLATE, {
     wikiIndex,
     fileName,
@@ -244,7 +241,9 @@ const HANDLERS: Array<[string, CompleteHandler]> = [
       // so we still pay the chunking cost there.
       const prior = state.partial[fileName];
       const totalChunks =
-        prior?.hash === hash ? prior.total : chunkSessionLog(buf.toString('utf-8'), KNOWLEDGE.MAX_SESSION_LOG_CHUNK_BYTES).length;
+        prior?.hash === hash
+          ? prior.total
+          : chunkSessionLog(buf.toString('utf-8'), KNOWLEDGE.MAX_SESSION_LOG_CHUNK_BYTES).length;
       const costSoFar = prior?.cost_usd ?? 0;
       const nextChunk = chunkIndex + 1;
       if (nextChunk >= totalChunks) {

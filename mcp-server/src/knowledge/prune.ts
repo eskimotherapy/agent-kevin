@@ -36,13 +36,13 @@ export async function pruneMemory(): Promise<void> {
     await unlink(resolve(FOLDERS.MEMORY, f));
   }
 
-  const prunedDates = toDelete
-    .map((f) => f.match(/^(\d{4}-\d{2}-\d{2})/)?.[1])
-    .filter((d): d is string => Boolean(d));
+  const prunedDates = toDelete.map((f) => f.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]).filter((d): d is string => Boolean(d));
   const scrubbed = await scrubManifestEntries(prunedDates);
 
   const scrubMsg = scrubbed > 0 ? `; scrubbed ${scrubbed} dangling [[memory/…]] bullet(s) from index.md` : '';
-  log.info(`Memory prune: deleted ${toDelete.length} file(s) older than ${cutoffStr} (${toDelete.join(', ')})${scrubMsg}`);
+  log.info(
+    `Memory prune: deleted ${toDelete.length} file(s) older than ${cutoffStr} (${toDelete.join(', ')})${scrubMsg}`
+  );
 }
 
 /**

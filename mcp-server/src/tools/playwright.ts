@@ -364,7 +364,9 @@ export const tools: ToolDef[] = [
         const video = page.video();
         await context.close();
         if (!video) {
-          throw new Error('Recording failed: page.video() returned null (recordVideo may have been disabled by the browser).');
+          throw new Error(
+            'Recording failed: page.video() returned null (recordVideo may have been disabled by the browser).'
+          );
         }
         const outPath = captureFilename('record', 'webm', name);
         await video.saveAs(outPath);

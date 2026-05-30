@@ -222,9 +222,7 @@ function findFirstSectionIndex(lines: string[]): number {
 
 function renderBullet(entry: IndexEntry): string {
   const hhmm = `${entry.time.slice(0, 2)}:${entry.time.slice(2, 4)}`;
-  const parts = [
-    `- ${hhmm} · [${entry.title}](${entry.linkPath}) · \`${entry.skill}\``
-  ];
+  const parts = [`- ${hhmm} · [${entry.title}](${entry.linkPath}) · \`${entry.skill}\``];
   if (entry.status) parts.push(`· ${STATUS_ICON[entry.status]} ${entry.status}`);
   return parts.join(' ');
 }

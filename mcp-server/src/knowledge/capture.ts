@@ -57,16 +57,12 @@ async function fetchUrl(url: string): Promise<{ content: string; sourceHint: str
   const contentType = res.headers.get('content-type') ?? '';
   const raw = await res.text();
   if (raw.length > KNOWLEDGE.MAX_URL_FETCH_BYTES) {
-    throw new Error(
-      `Response too large (${raw.length} > ${KNOWLEDGE.MAX_URL_FETCH_BYTES} bytes): ${url}`
-    );
+    throw new Error(`Response too large (${raw.length} > ${KNOWLEDGE.MAX_URL_FETCH_BYTES} bytes): ${url}`);
   }
   const isHtml = /html/i.test(contentType);
   const content = isHtml ? renderExtracted(await htmlToMarkdown(raw)) : raw;
   if (content.length > KNOWLEDGE.MAX_TEXT_FILE_BYTES) {
-    throw new Error(
-      `Sanitized content too large (${content.length} > ${KNOWLEDGE.MAX_TEXT_FILE_BYTES} bytes): ${url}`
-    );
+    throw new Error(`Sanitized content too large (${content.length} > ${KNOWLEDGE.MAX_TEXT_FILE_BYTES} bytes): ${url}`);
   }
   return { content, sourceHint: `url:${url}` };
 }

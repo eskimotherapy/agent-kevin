@@ -20,19 +20,14 @@ export const ENTRY_HEADER_RE = new RegExp(`^${ENTRY_HEADER_PATTERN}`, 'm');
  * the literal `ENTRY_SEPARATOR` immediately before each header — keeps
  * headers inside fenced code blocks from triggering false splits.
  */
-export const ENTRY_SPLIT_RE = new RegExp(
-  `(?<=^|${ESCAPED_SEPARATOR})(?=${ENTRY_HEADER_PATTERN})`,
-);
+export const ENTRY_SPLIT_RE = new RegExp(`(?<=^|${ESCAPED_SEPARATOR})(?=${ENTRY_HEADER_PATTERN})`);
 
 /**
  * Locates each `ENTRY_SEPARATOR` immediately followed by a Session header
  * (not Pre-Compact). Consume via `matchAll` to avoid the shared-state hazard
  * that comes with `/g` + `exec`.
  */
-export const SESSION_BLOCK_SEPARATOR_RE = new RegExp(
-  `${ESCAPED_SEPARATOR}(?=${SESSION_HEADER_PATTERN})`,
-  'g',
-);
+export const SESSION_BLOCK_SEPARATOR_RE = new RegExp(`${ESCAPED_SEPARATOR}(?=${SESSION_HEADER_PATTERN})`, 'g');
 
 /** Matches a Session header at line start — fallback when no separators exist. */
 export const FIRST_SESSION_HEADER_RE = new RegExp(`^${SESSION_HEADER_PATTERN}`, 'm');

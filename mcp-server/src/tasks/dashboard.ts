@@ -86,7 +86,10 @@ const fileSlug = (filePath: string, fallback: string): string =>
 
 const taskLink = (t: TaskFile): string => `[[${fileSlug(t.filePath, t.frontmatter.id)}|${t.frontmatter.id}]]`;
 
-type MetaField = keyof Pick<TaskFrontmatter, 'project' | 'priority' | 'status' | 'due' | 'updated' | 'closed' | 'blocked_by' | 'depends_on' | 'assignee'>;
+type MetaField = keyof Pick<
+  TaskFrontmatter,
+  'project' | 'priority' | 'status' | 'due' | 'updated' | 'closed' | 'blocked_by' | 'depends_on' | 'assignee'
+>;
 
 const fmtMeta = (t: TaskFile, fields: MetaField[]): string => {
   const parts = fields.flatMap((f) => {

@@ -51,7 +51,9 @@ for (const tool of TOOLS) {
     toolLog.debug('dispatch', args);
     try {
       const result = await tool.handler(args);
-      return { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }] };
+      return {
+        content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result, null, 2) }]
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toolLog.error(`failed: ${message}`);

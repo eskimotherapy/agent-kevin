@@ -58,11 +58,11 @@ function urlToWikiKey(url: string, fromDir: string): { key: string; anchor: stri
   // Drop fragment/anchor before resolution; tack it back on the wiki key.
   const [pathPart, anchor = ''] = url.split('#');
   if (!pathPart) return null;
-  if (/^[a-z]+:\/\//i.test(pathPart)) return null;        // external URL
-  if (!pathPart.endsWith('.md')) return null;             // not a markdown file
+  if (/^[a-z]+:\/\//i.test(pathPart)) return null; // external URL
+  if (!pathPart.endsWith('.md')) return null; // not a markdown file
   const abs = resolve(fromDir, pathPart);
   const rel = relative(FOLDERS.KNOWLEDGE, abs);
-  if (rel.startsWith('..') || rel.startsWith('/')) return null;  // outside wiki
+  if (rel.startsWith('..') || rel.startsWith('/')) return null; // outside wiki
   return { key: rel.replace(/\.md$/, ''), anchor };
 }
 
@@ -114,7 +114,10 @@ async function readLinkInfo(filePath: string, fallback: string): Promise<LinkInf
   }
 
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  const titleFromFm = fmMatch?.[1].match(/^title:\s*(.+)$/m)?.[1].trim().replace(/^["']|["']$/g, '');
+  const titleFromFm = fmMatch?.[1]
+    .match(/^title:\s*(.+)$/m)?.[1]
+    .trim()
+    .replace(/^["']|["']$/g, '');
   if (titleFromFm) return { displayName: titleFromFm, absolutePath: filePath };
 
   const body = fmMatch ? content.slice(fmMatch[0].length) : content;
