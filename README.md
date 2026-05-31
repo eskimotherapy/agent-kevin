@@ -34,47 +34,6 @@ This isn't a chat wrapper. It's an **operating system for personal AI**:
 
 ---
 
-## 🛰️ The Command Center
-
-<div align="center">
-<img src="assets/agent-control-center.png" alt="Kevin command center" width="720" />
-</div>
-
-There's a lot going on inside an agent. The **command center** is a single screen that shows the whole picture at a glance — skills, MCP tools, hooks, the knowledge wiki and compile coverage, tasks across every project, the **context that loads each session** (static `@-imports` + the dynamic SessionStart manifest), layered settings (secrets redacted), and logs. A system-status badge up top tells you in one glance whether anything needs attention.
-
-**How to open it:**
-
-- In Claude Code, run **`/agent-kevin:status`** — it renders a clean, static overview right in the conversation.
-- Drill into any area with `kevin status <tab>` — `overview · context · knowledge · work · system · settings`.
-
-**It's more alive in your terminal.** Run `kevin status` directly in a real terminal and it launches an **interactive TUI**: a banner, a tab bar, and live tab-switching with the **arrow keys** (`q` to quit). Piped or captured through Claude, it auto-detects the non-interactive context and falls back to the static overview — so the same command does the right thing in both places.
-
-It's read-only. It never mutates anything; it just reflects what Kevin is right now.
-
----
-
-## 💡 Why you'll want one
-
-```mermaid
-graph LR
-    A[Sessions] -->|capture| B[Knowledge]
-    B -->|informs| C[Projects]
-    C -->|generate| D[Results]
-    D -->|feed back into| A
-```
-
-**The flywheel.** Every session makes Kevin smarter. Every project generates knowledge. Every piece of knowledge makes the next session better.
-
-- 🧠 **Memory that compounds.** The `SessionEnd` and `PreCompact` hooks copy your conversation to `knowledge/raw/sessions/`. The `knowledge-compile` skill distils those raw logs into structured wiki articles (user profile facets, cross-cutting concepts, active memory). On your next launch, the compiled knowledge loads as @-imports before you've typed a word. **This loop is the entire evolution story.**
-- 📋 **Project lifecycles, not just chats.** Spin up projects with `/agent-kevin:create-project`, track tasks with status / priority / dependencies, archive cleanly when they're done. Markdown files. Obsidian-friendly. Git-friendly.
-- 🌅 **Daily, weekly, monthly cadences.** Morning briefings, evening wraps, weekly goals, monthly reviews. Built-in skills, run on demand.
-- 🔍 **SEO that audits itself.** Plug GSC + PageSpeed + SerpAPI, run `/agent-kevin:google-search-audit`, get a ranked-by-impact diagnostic report.
-- 🌐 **Web at your fingertips.** Bundled Playwright + chromium for screenshots, styled PDFs (markdown + mermaid rendered), URL → clean Markdown (handles SPAs), scripted page recordings. Optional Perplexity for live web research.
-- 🏠 **Multiple homes, multiple personas.** One personal Kevin, one work Kevin, one SEO Kevin. Same plugin, different brains.
-- ✅ **Subscription-billed**, not API-billed (see [Claude Code Billing](#claude-code-billing)).
-
----
-
 ## ⚡ Quick start
 
 ### Option A: Install via `/plugin` (recommended once published)
@@ -123,6 +82,63 @@ Inside the session, register the local marketplace and install:
 Then `claude` again and `/agent-kevin:init` as above.
 
 > Already have a `CLAUDE.md` in the directory? Kevin writes its operating manual to `CLAUDE.local.md` instead and leaves yours alone. Both files load at session start.
+
+### Updating an installed plugin
+
+Plugin updates are **not** automatic for third-party marketplaces — Kevin ships an explicit `version` in `plugin.json`, so you pull new releases on your own. Inside a session:
+
+```text
+/plugin marketplace update agentlayer    # refresh the catalog
+/plugin update agent-kevin@agentlayer     # pull the new version
+/reload-plugins                           # activate without restarting
+```
+
+(Local dev install? Swap `agentlayer` for `agentdev-kevin`.)
+
+Prefer hands-off? Turn on auto-update via `/plugin` → **Marketplaces** tab → select the marketplace → **Enable auto-update**. Each launch then refreshes the catalog and pulls any new version automatically.
+
+> ⚠️ **Auto-update is a global toggle per marketplace, not per plugin** — enabling it updates *every* plugin installed from that marketplace at startup, not just Kevin. Leave it off if you want to control exactly when each plugin changes.
+
+---
+
+## 💡 Why you'll want one
+
+```mermaid
+graph LR
+    A[Sessions] -->|capture| B[Knowledge]
+    B -->|informs| C[Projects]
+    C -->|generate| D[Results]
+    D -->|feed back into| A
+```
+
+**The flywheel.** Every session makes Kevin smarter. Every project generates knowledge. Every piece of knowledge makes the next session better.
+
+- 🧠 **Memory that compounds.** The `SessionEnd` and `PreCompact` hooks copy your conversation to `knowledge/raw/sessions/`. The `knowledge-compile` skill distils those raw logs into structured wiki articles (user profile facets, cross-cutting concepts, active memory). On your next launch, the compiled knowledge loads as @-imports before you've typed a word. **This loop is the entire evolution story.**
+- 📋 **Project lifecycles, not just chats.** Spin up projects with `/agent-kevin:create-project`, track tasks with status / priority / dependencies, archive cleanly when they're done. Markdown files. Obsidian-friendly. Git-friendly.
+- 🌅 **Daily, weekly, monthly cadences.** Morning briefings, evening wraps, weekly goals, monthly reviews. Built-in skills, run on demand.
+- 🔍 **SEO that audits itself.** Plug GSC + PageSpeed + SerpAPI, run `/agent-kevin:google-search-audit`, get a ranked-by-impact diagnostic report.
+- 🌐 **Web at your fingertips.** Bundled Playwright + chromium for screenshots, styled PDFs (markdown + mermaid rendered), URL → clean Markdown (handles SPAs), scripted page recordings. Optional Perplexity for live web research.
+- 🏠 **Multiple homes, multiple personas.** One personal Kevin, one work Kevin, one SEO Kevin. Same plugin, different brains.
+- ✅ **Subscription-billed**, not API-billed (see [Claude Code Billing](#claude-code-billing)).
+
+---
+
+## 🛰️ The Command Center
+
+<div align="center">
+<img src="assets/agent-control-center.png" alt="Kevin command center" width="720" />
+</div>
+
+There's a lot going on inside an agent. The **command center** is a single screen that shows the whole picture at a glance — skills, MCP tools, hooks, the knowledge wiki and compile coverage, tasks across every project, the **context that loads each session** (static `@-imports` + the dynamic SessionStart manifest), layered settings (secrets redacted), and logs. A system-status badge up top tells you in one glance whether anything needs attention.
+
+**How to open it:**
+
+- In Claude Code, run **`/agent-kevin:status`** — it renders a clean, static overview right in the conversation.
+- Drill into any area with `kevin status <tab>` — `overview · context · knowledge · work · system · settings`.
+
+**It's more alive in your terminal.** Run `kevin status` directly in a real terminal and it launches an **interactive TUI**: a banner, a tab bar, and live tab-switching with the **arrow keys** (`q` to quit). Piped or captured through Claude, it auto-detects the non-interactive context and falls back to the static overview — so the same command does the right thing in both places.
+
+It's read-only. It never mutates anything; it just reflects what Kevin is right now.
 
 ---
 
