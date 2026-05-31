@@ -351,7 +351,7 @@ The status block reads from the **dust-settled artifacts** (`projects/TASKS.md`,
 
 ## 🌐 Playwright web tools
 
-Four MCP tools backed by a bundled chromium (installed once via `bun install`'s playwright postinstall, ~150MB). All four output to `<HOME>/.kevin/captures/<timestamp>-<name>.<ext>`. The Browser pack must be active (`/agent-kevin:configure-skills` → tick Browser pack) for the permissions to be pre-granted; without it the first call confirms.
+Four MCP tools backed by a bundled chromium (installed once via `bun install`'s playwright postinstall, ~150MB). All four output to `<HOME>/reports/captures/<timestamp>-<name>.<ext>`. The Browser pack must be active (`/agent-kevin:configure-skills` → tick Browser pack) for the permissions to be pre-granted; without it the first call confirms.
 
 | Tool | Output | Use it for |
 |---|---|---|
@@ -366,16 +366,16 @@ Four MCP tools backed by a bundled chromium (installed once via `bun install`'s 
 
 ```
 you  > screenshot https://walapay.io and call it walapay-landing
-kevin > [calls playwright_screenshot(input=…, name=walapay-landing)] → .kevin/captures/<ts>-walapay-landing.png
+kevin > [calls playwright_screenshot(input=…, name=walapay-landing)] → reports/captures/<ts>-walapay-landing.png
 
 you  > render ~/Documents/business-plan.md to PDF
-kevin > [calls playwright_pdf(input=…)] → .kevin/captures/<ts>-pdf.pdf  (mermaid diagrams come through)
+kevin > [calls playwright_pdf(input=…)] → reports/captures/<ts>-pdf.pdf  (mermaid diagrams come through)
 
 you  > convert https://basem.emara.io to markdown — make sure the JS-rendered sections come through
-kevin > [calls playwright_markdown(input=…, waitUntil=networkidle)] → .kevin/captures/<ts>-markdown.md
+kevin > [calls playwright_markdown(input=…, waitUntil=networkidle)] → reports/captures/<ts>-markdown.md
 
 you  > record a 15-second tour of agentlayer.one — scroll halfway, wait 2s, scroll to the bottom
-kevin > [calls playwright_record(input=…, steps=[{kind:scroll,pixels:600},{kind:wait,ms:2000},{kind:scroll,pixels:9999}])] → .kevin/captures/<ts>-record.webm
+kevin > [calls playwright_record(input=…, steps=[{kind:scroll,pixels:600},{kind:wait,ms:2000},{kind:scroll,pixels:9999}])] → reports/captures/<ts>-record.webm
 ```
 
 ---

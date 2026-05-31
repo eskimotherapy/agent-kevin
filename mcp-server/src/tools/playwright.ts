@@ -7,7 +7,7 @@
  * chromium with it. We mirror that env var at runtime so the runtime lookup
  * resolves to the same in-plugin location.
  *
- * Captures land in `<KEVIN_HOME>/.kevin/captures/<timestamp>-<name>.{png,pdf,webm}`.
+ * Captures land in `<KEVIN_HOME>/reports/captures/<timestamp>-<name>.{png,pdf,webm}`.
  *
  * macOS caveat: browser launch can fail inside sandboxed Claude Code subprocesses
  * (XPC/Crashpad walls). When that happens, the playwright launch promise
@@ -25,7 +25,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 
-const CAPTURES_DIR = resolve(FOLDERS.DATA, 'captures');
+const CAPTURES_DIR = resolve(FOLDERS.REPORTS, 'captures');
 
 const StepSchema = z.object({
   kind: z.enum(['navigate', 'scroll', 'wait']),
@@ -294,7 +294,7 @@ export const tools: ToolDef[] = [
   defineTool({
     name: 'playwright_markdown',
     description:
-      'Render a URL or local file in chromium so JS-rendered content hydrates, then extract the article body via Mozilla Readability and convert to Markdown. Output saved to .kevin/captures/<ts>-<name>.md. Use this for SPAs / Next.js / React sites where raw fetch() misses client-rendered sections. Requires the Browser pack installed.',
+      'Render a URL or local file in chromium so JS-rendered content hydrates, then extract the article body via Mozilla Readability and convert to Markdown. Output saved to reports/captures/<ts>-<name>.md. Use this for SPAs / Next.js / React sites where raw fetch() misses client-rendered sections. Requires the Browser pack installed.',
     inputSchema: {
       input: z.string().describe('URL, file:// URL, or absolute/relative path'),
       name: z.string().optional().describe('Optional output filename hint'),

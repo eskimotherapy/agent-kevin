@@ -13,6 +13,9 @@ certificates/
 # runtime state (tokens, compile state, logs)
 .kevin/
 
+# playwright capture artifacts (screenshots, pdfs, recordings — binary, regenerable)
+reports/captures/
+
 # obsidian (per-device pane layout + cache churn on every save — vault config stays tracked)
 .obsidian/workspace.json
 .obsidian/cache/
