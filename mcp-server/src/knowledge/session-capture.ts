@@ -24,7 +24,7 @@ import { log as baseLog } from '@/shared/log';
 import type { TranscriptTurn } from '@/shared/types';
 import { expandTilde } from '@/shared/utils';
 import { existsSync, readFileSync } from 'node:fs';
-import { appendFile, mkdir, rm, stat, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { relative, resolve } from 'node:path';
 
@@ -194,23 +194,39 @@ const LOCK_MAX_WAIT_MS = 5_000;
  * A stale lock (a hook that crashed mid-capture) is stolen after LOCK_STALE_MS;
  * if the lock can't be taken within LOCK_MAX_WAIT_MS we proceed anyway —
  * dropping a capture is worse than a once-in-a-blue-moon duplicate.
+ *
+ * Each holder writes a unique token into the lock dir; release only removes the
+ * lock if that token still matches. Without this, a holder that overran
+ * LOCK_STALE_MS and got its lock stolen would, on its own release, delete the
+ * *stealer's* lock — letting a third process run concurrently (ABA race).
  */
 async function acquireCaptureLock(): Promise<() => Promise<void>> {
   await mkdir(FOLDERS.DATA, { recursive: true }); // ensure lock's parent exists
   const deadline = Date.now() + LOCK_MAX_WAIT_MS;
-  const release = async () => {
+  const ownerFile = resolve(LOCK_DIR, 'owner');
+  const token = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // Unconditional removal — only used when stealing a stale lock we don't own.
+  const forceRelease = async () => {
     await rm(LOCK_DIR, { recursive: true, force: true }).catch(() => {});
+  };
+  // Ownership-checked removal — our own release, safe against a prior steal.
+  const release = async () => {
+    const current = await readFile(ownerFile, 'utf-8').catch(() => null);
+    if (current === token) {
+      await forceRelease();
+    }
   };
   for (;;) {
     try {
       await mkdir(LOCK_DIR);
+      await writeFile(ownerFile, token, 'utf-8');
       return release;
     } catch {
       const age = await stat(LOCK_DIR)
         .then((s) => Date.now() - s.mtimeMs)
         .catch(() => Infinity);
       if (age > LOCK_STALE_MS) {
-        await release();
+        await forceRelease(); // steal: the dir isn't ours, so remove it unconditionally
         continue;
       }
       if (Date.now() >= deadline) {
