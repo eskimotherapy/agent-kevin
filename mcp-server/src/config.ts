@@ -40,6 +40,15 @@ export const FOLDERS = {
   REPORTS: fromEnv('KEVIN_REPORTS', resolve(KEVIN_HOME, 'reports'))
 } as const;
 
+/** Browser/Playwright settings shared by the `browser-flows` skill scripts (and any future
+ * capture-tool consumers). Single source so paths + tunables don't drift. */
+export const BROWSER = {
+  STATE_DIR: resolve(DATA_ROOT, 'browser'),
+  CAPTURES_DIR: resolve(FOLDERS.REPORTS, 'captures'),
+  INTERACTIVE_ARGS: ['--window-size=1280,900', '--window-position=120,80'] as readonly string[],
+  LOGIN_WAIT_MS: 300_000
+} as const;
+
 /** Extra git repos surfaced in the SessionStart context alongside the knowledge
  * directory. Configure via `KEVIN_GIT_REPOS` env var (comma-separated paths,
  * `~` expanded). The basename of each path is used as its section label. */

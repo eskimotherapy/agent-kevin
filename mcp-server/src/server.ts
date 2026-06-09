@@ -11,6 +11,7 @@ import { log } from '@/shared/log';
 import type { ToolDef } from '@/shared/types';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { tools as browserFlowsTools } from './tools/browser-flows';
 import { tools as captureTools } from './tools/capture';
 import { tools as compileTools } from './tools/compile';
 import { tools as pageSpeedTools } from './tools/google-page-speed';
@@ -40,7 +41,8 @@ const TOOLS: ToolDef[] = [
   ...gscTools,
   ...pageSpeedTools,
   ...playwrightTools,
-  ...reportTools
+  ...reportTools,
+  ...browserFlowsTools
 ];
 
 const server = new McpServer({ name: 'kevin', version: '0.1.0' });
