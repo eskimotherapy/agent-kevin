@@ -148,7 +148,7 @@ Pages and sub-tabs deep-link by hash (`index.html#work/projects`), text filters 
 { "env": { "MARKDOWN_URL": "markedit://open?path={path}" } }
 ```
 
-**How to refresh it:** every `/agent-kevin:sync` does it automatically; `/agent-kevin:dashboard` rebuilds and opens it; `kevin status` does the same from a terminal; the `dashboard` MCP tool is the programmatic hook. Every refresh also rebuilds `projects/TASKS.md` (and vice versa) — the two derived views always regenerate together. It's a **snapshot, not a live app** — the generated timestamp is in the footer. The file is fully self-contained and makes **zero external requests**: no CDN, no webfonts, no analytics. It renders identically offline, nothing on it leaves your machine, and regenerating it never mutates state.
+**How to refresh it:** every `/agent-kevin:sync` does it automatically; `/agent-kevin:dashboard` rebuilds and opens it; `kevin dashboard` does the same from a terminal; the `dashboard` MCP tool is the programmatic hook. Every refresh also rebuilds `projects/TASKS.md` (and vice versa) — the two derived views always regenerate together. It's a **snapshot, not a live app** — the generated timestamp is in the footer. The file is fully self-contained and makes **zero external requests**: no CDN, no webfonts, no analytics. It renders identically offline, nothing on it leaves your machine, and regenerating it never mutates state.
 
 > ⚠️ Privacy note: `index.html` sits at your HOME root and reflects your tasks, knowledge stats, and (redacted) settings. If you ever publish that repo — e.g. enable GitHub Pages on it — this page publishes too. Keep agent homes private.
 
@@ -668,7 +668,8 @@ kevin help     # full command reference
 
 | Group | What it does |
 |-------|--------------|
-| `kevin task <subcmd>` | Query, get, create, update, close, thread, scan, dashboard tasks |
+| `kevin task <subcmd>` | Query, get, create, update, close, thread, scan tasks |
+| `kevin dashboard` | Rebuild both dashboards: `projects/TASKS.md` + the Agent OS page at `<HOME>/index.html` |
 | `kevin knowledge lint [--fix]` | Structural wiki health check (broken links, orphans, missing backlinks, sparse, invalid frontmatter); `--fix` auto-rewrites links + inserts backlinks |
 | `kevin compile <subcmd>` | `status` (queue), `next` (peek), `write <id>` (mark complete). Synthesis itself runs in Claude Code via `/agent-kevin:knowledge-compile` |
 | `kevin prune` | Delete `memory/YYYY-MM-DD*.md` older than the retention window (14 days) |
@@ -858,7 +859,7 @@ A: For the LLM synthesis steps yes. The MCP server is pure I/O, returning prompt
 1. **CC must open in `<HOME>`** for static identity to load. Outside, you only get the dynamic lane.
 2. **Sandbox can block `.claude/skills/` writes** during `/agent-kevin:configure-skills`. Pre-create the dir from a normal terminal if it hits the wall.
 3. **Playwright + macOS sandbox.** Browser launch can fail inside CC's sandboxed subprocesses (XPC walls). Workaround: install playwright manually in a normal terminal so chromium caches.
-4. **No live GUI.** The [Agent OS dashboard](#%EF%B8%8F-the-agent-os-dashboard) at `<HOME>/index.html` is a static snapshot regenerated on sync (or `kevin status`), not a served app — between syncs it can drift from task frontmatter.
+4. **No live GUI.** The [Agent OS dashboard](#%EF%B8%8F-the-agent-os-dashboard) at `<HOME>/index.html` is a static snapshot regenerated on sync (or `kevin dashboard`), not a served app — between syncs it can drift from task frontmatter.
 5. **Single-user.** Multi-user / team-isolation isn't built in. Workaround: separate homes per user.
 6. **No proactive Kevin.** See [Claude Code Billing](#claude-code-billing). External schedulers can run Kevin via `claude --print`, but those calls bill against API quota, not your subscription.
 

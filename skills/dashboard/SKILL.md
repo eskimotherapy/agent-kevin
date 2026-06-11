@@ -48,5 +48,5 @@ attention) · `sessions` · `brain` (threads / concepts / memory / pipeline) ·
   env var in `.claude/settings.local.json` (`{path}` placeholder, e.g.
   `markedit://open?path={path}`); defaults to
   `obsidian://open?path={path}&paneType=tab` (new Obsidian tab, dashboard stays put).
-- Every `/agent-kevin:sync` also refreshes the dashboard; `kevin status` does
-  the same from a terminal.
+- Every `/agent-kevin:sync` also refreshes the dashboard; `kevin dashboard`
+  does the same from a terminal.

@@ -21,6 +21,7 @@
  *
  *   kevin prune
  *   kevin links
+ *   kevin dashboard
  *
  *   kevin knowledge lint [--fix]
  */
@@ -119,7 +120,7 @@ Groups:
   knowledge                         Wiki maintenance (lint)
   prune                             Delete memory/YYYY-MM-DD*.md older than 14 days
   links                             Rewrite bare task IDs + shorthand into [[wikilinks]]
-  status                            Rebuild the Agent OS dashboard at <HOME>/index.html + projects/TASKS.md (open in any browser)
+  dashboard                         Rebuild the Agent OS dashboard at <HOME>/index.html + projects/TASKS.md (open in any browser)
 
 Task commands:
   task query [--status=X] [--priority=P0-P3] [--project=NAME]
@@ -172,7 +173,7 @@ Examples:
   kevin capture --kind=feedback "don't propose git push for local-only repos"
   kevin task query --status=active
   kevin task create --project=blog-dev --title="Draft launch post" --description="..." --priority=P1
-  kevin status
+  kevin dashboard
   kevin knowledge lint --fix
   kevin compile status
 `;
@@ -495,7 +496,7 @@ async function run(): Promise<void> {
     return;
   }
 
-  if (group === 'status') {
+  if (group === 'dashboard') {
     // The Agent OS dashboard replaced the old terminal TUI: regenerate
     // <HOME>/index.html from a fresh snapshot and print where it landed.
     // TASKS.md rebuilds first — the two derived views always refresh together.
