@@ -767,6 +767,7 @@ Blank line, then the status block as plain prose (one row per line, two-space gu
 > ✅ Plugin reg    .claude/settings.json (auto-loads agent-kevin next launch — no `--plugin-dir` needed)
 > ✅ Knowledge     `<FACET_FILES_FILLED>/5` facets populated `<from blog · LinkedIn · GitHub, if Step 5 ran>`
 > ✅ Indexes       knowledge/index.md · knowledge/memory/index.md · projects/TASKS.md
+> ✅ Dashboard     index.html — open it in any browser; rebuilt by every sync or `/agent-kevin:dashboard`
 > ✅ Concepts      4 seeded: karpathy-wiki · markdown-native-task-management · self-evolution-loop · audit-premise-decay
 > `<SKILL_PACK_ROW>`
 > ⏳ Custom skills none — author with `/agent-kevin:configure-skills`
@@ -829,6 +830,7 @@ Blank line, then the **Next** heading (same style as Ready), then the relaunch p
 >
 > Once the plugin is loaded, try:
 >
+> - `/agent-kevin:dashboard` — open the Agent OS dashboard (your whole setup on one page)
 > - `/agent-kevin:configure-skills` — configure skill packs (SEO, Browser) or author a custom skill
 > - `/agent-kevin:create-project` — start your first project
 > - `/agent-kevin:morning-briefing` — see what Kevin knows about you
