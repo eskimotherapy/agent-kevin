@@ -1,46 +1,49 @@
 ---
 name: status
-description: Command-center overview of the whole agent — skills, MCP tools, hooks, knowledge wiki, compile coverage, tasks, context assembly (static @-imports + dynamic SessionStart), layered settings (secrets redacted), and logs. Use when you want a high-level "what is Kevin right now" snapshot.
+description: Rebuild and open the Agent OS dashboard — a static HTML mission-control page covering today's plan and activity, work across projects, sessions, Kevin's brain, reports, capabilities, and system internals. Use when the user wants the big picture of what Kevin is and what's going on.
 disable-model-invocation: true
-allowed-tools: Bash
+allowed-tools: mcp__plugin_agent-kevin_kevin__status_dashboard, Bash
 ---
 
 # Status
 
-A tabbed "mission control" overview rendered by the deterministic `kevin status`
-command. Don't recompose or summarize it — the command already gathers and
-formats the data.
-
-> In a real terminal `kevin status` launches an **interactive** TUI (← → / 1-6
-> switch tabs, q quits). Through Claude / piped, it auto-detects the non-TTY and
-> renders a **static** single tab instead — so just run it and present the output.
+The Agent OS dashboard is the command center: a self-contained `index.html` at
+the agent home, regenerated from current state on demand. No server, zero
+external requests.
 
 ## Run
 
-Default to the **overview** tab:
+1. Rebuild the snapshot:
 
-```bash
-bun "$CLAUDE_PLUGIN_ROOT/bin/kevin" status --color=always
+```
+mcp__plugin_agent-kevin_kevin__status_dashboard
 ```
 
-Render a specific tab when the user asks to drill in:
+Returns `{ path, bytes }`.
+
+2. Open it for the user (macOS):
 
 ```bash
-bun "$CLAUDE_PLUGIN_ROOT/bin/kevin" status <tab> --color=always
-# tabs: overview · context · knowledge · work · system · settings
+open "<path from step 1>"
 ```
 
-- `work` — task load, per-project breakdown, overdue/active/stale lists
-- `system` — full skills list, MCP servers/tools, hook wiring
-- `context` — what loads each session: static `@-imports` + dynamic SessionStart manifest (session tail, today's reports, git activity)
+3. Reply with one line: the dashboard is open, plus anything the health badge
+   would flag (the tool result alone doesn't carry health — skip unless asked).
 
-Present the output **verbatim** inside a fenced code block so the banner, bars,
-and alignment survive. If the output shows raw `\x1b[` escape sequences instead
-of color (some renderers don't interpret ANSI), re-run with `--color=never` and
-present that instead.
+## Pages
+
+`today` (plan + today-so-far activity) · `work` (agenda / projects / needs
+attention) · `sessions` · `brain` (threads / concepts / memory / pipeline) ·
+`reports` · `capabilities` (cheatsheet / skills / tools / reflexes) ·
+`persona` · `system` (context / settings / logs). Sub-tabs deep-link:
+`index.html#work/projects`.
 
 ## Notes
 
-- Pure read: the command only reads state, never mutates.
+- Pure read: regenerating the dashboard never mutates knowledge or tasks.
 - Secrets are redacted at the source (`••••`); never un-redact them.
-- `--no-banner` drops the ASCII banner on the overview tab.
+- Markdown links open via the configured opener app: set the `MARKDOWN_URL`
+  env var in `.claude/settings.local.json` (`{path}` placeholder, e.g.
+  `markedit://open?path={path}`); defaults to `obsidian://open?path={path}`.
+- Every `/agent-kevin:sync` also refreshes the dashboard; `kevin status` does
+  the same from a terminal.
