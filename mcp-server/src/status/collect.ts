@@ -936,8 +936,11 @@ const wikiIndexDescriptions = (prefix: string): Map<string, string> => {
   return map;
 };
 
+// Pre-init fallback: derive the agent's name from the plugin id (agent-walle → Walle).
+const FALLBACK_AGENT_NAME = PLUGIN_NAME.replace(/^agent-/, '').replace(/^./, (c) => c.toUpperCase());
+
 const collectPersona = (): Persona => ({
-  name: boldField(FILES.IDENTITY, 'Name') || 'Kevin',
+  name: boldField(FILES.IDENTITY, 'Name') || FALLBACK_AGENT_NAME,
   kind: stripMarkdown(boldField(FILES.IDENTITY, 'Kind')),
   vibe: stripMarkdown(boldField(FILES.IDENTITY, 'Vibe')),
   emoji: boldField(FILES.IDENTITY, 'Emoji'),

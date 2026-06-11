@@ -452,7 +452,7 @@ const pageSessions = (snap: StatusSnapshot): string => {
   return page(
     'sessions',
     'Sessions',
-    'What you and Kevin worked on, captured automatically.',
+    `What you and ${snap.persona.name} worked on, captured automatically.`,
     [
       section('Volume', 'last 7 days', volume),
       section(
@@ -494,8 +494,12 @@ const pageBrain = (snap: StatusSnapshot): string => {
             .join('')
         : hint('No daily memory files right now.')
     ),
-    section('Learnings', 'how Kevin self-corrects', plainRows(memoryLearnings, 'No learnings synthesized yet.')),
-    section('Pending', 'open loops Kevin is tracking', plainRows(memoryPending, 'No pending items.'))
+    section(
+      'Learnings',
+      `how ${snap.persona.name} self-corrects`,
+      plainRows(memoryLearnings, 'No learnings synthesized yet.')
+    ),
+    section('Pending', `open loops ${snap.persona.name} is tracking`, plainRows(memoryPending, 'No pending items.'))
   ].join('');
 
   const pipeline = [
@@ -536,7 +540,7 @@ const pageBrain = (snap: StatusSnapshot): string => {
   return page(
     'brain',
     'Brain',
-    "Kevin's living memory of your world — compiled from every session.",
+    `${snap.persona.name}'s living memory of your world — compiled from every session.`,
     subTabs([
       { id: 'threads', label: 'Threads', body: threads },
       {
@@ -568,7 +572,7 @@ const pageReports = (snap: StatusSnapshot): string => {
   return page(
     'reports',
     'Reports',
-    'Briefings, plans, and audits Kevin has produced. Click any title to open it in Obsidian.',
+    `Briefings, plans, and audits ${snap.persona.name} has produced. Click any title to open it.`,
     snap.reports.length
       ? `<div data-filterbox>${filterInput('filter reports…')}${groups}</div>${note}`
       : hint('No reports yet — briefings and plans will land here.')
@@ -610,7 +614,7 @@ const cheatsheet = (plugin: string): Array<{ when: string; say: string; what: st
   {
     when: 'Once a month',
     say: `/${plugin}:self-review`,
-    what: 'Kevin reviews his own behavior against your feedback and proposes improvements.'
+    what: 'The agent reviews its own behavior against your feedback and proposes improvements.'
   },
   {
     when: 'Save anything',
@@ -681,7 +685,7 @@ const pageCapabilities = (snap: StatusSnapshot): string => {
   return page(
     'capabilities',
     'Capabilities',
-    'Everything you can ask Kevin to do — skills by name, tools under the hood.',
+    `Everything you can ask ${snap.persona.name} to do — skills by name, tools under the hood.`,
     subTabs([
       { id: 'cheatsheet', label: 'Cheatsheet', body: cheatRows },
       { id: 'skills', label: `Skills · ${skills.count}`, body: skillTiles },
@@ -694,7 +698,7 @@ const pageCapabilities = (snap: StatusSnapshot): string => {
 const pageProfile = (snap: StatusSnapshot): string => {
   const { operator } = snap;
   const avatar = operator.avatar ? `<img src="${esc(operator.avatar)}" alt="${esc(operator.name || 'avatar')}">` : '';
-  const head = `<div class="persona-head">${avatar}<div><div class="p-name">${esc(operator.name || 'Operator')}</div><div class="p-kind">${esc(operator.timezone)}</div><div class="p-vibe">${esc(operator.headline || 'The operator, as Kevin knows you.')}</div></div></div>`;
+  const head = `<div class="persona-head">${avatar}<div><div class="p-name">${esc(operator.name || 'Operator')}</div><div class="p-kind">${esc(operator.timezone)}</div><div class="p-vibe">${esc(operator.headline || 'The operator profile grows as you work together.')}</div></div></div>`;
 
   // The compiled profile facet, section by section — the page Kevin would
   // write about you, not a list of file names.
@@ -718,7 +722,7 @@ const pageProfile = (snap: StatusSnapshot): string => {
   return page(
     'profile',
     `${esc(operator.name || 'Profile')} <span class="accent">👤</span>`,
-    'Who Kevin is working for — compiled from every session.',
+    `Who ${snap.persona.name} is working for — compiled from every session.`,
     [
       head,
       profileSections || hint('No profile compiled yet — it grows as you work together.'),
@@ -730,7 +734,7 @@ const pageProfile = (snap: StatusSnapshot): string => {
       section(
         'Headline',
         '',
-        `<div class="row"><span class="grow dim">Name, timezone, and how Kevin should talk to you — loaded every session.</span><span class="nowrap">${mdLink(snap, 'USER.md', 'open USER.md')}</span></div>`
+        `<div class="row"><span class="grow dim">Name, timezone, and how ${esc(snap.persona.name)} should talk to you — loaded every session.</span><span class="nowrap">${mdLink(snap, 'USER.md', 'open USER.md')}</span></div>`
       )
     ].join('')
   );
@@ -768,7 +772,7 @@ const pagePersona = (snap: StatusSnapshot): string => {
       section(
         'Identity files',
         '',
-        `<div class="row"><span class="grow dim">Kevin's character and role — edit these to evolve him.</span><span class="nowrap">${mdLink(snap, 'SOUL.md', 'SOUL.md')} · ${mdLink(snap, 'IDENTITY.md', 'IDENTITY.md')}</span></div>`
+        `<div class="row"><span class="grow dim">${esc(persona.name)}'s character and role — edit these to evolve them.</span><span class="nowrap">${mdLink(snap, 'SOUL.md', 'SOUL.md')} · ${mdLink(snap, 'IDENTITY.md', 'IDENTITY.md')}</span></div>`
       ),
       section('Runtime', '', runtimeRows)
     ].join('')
