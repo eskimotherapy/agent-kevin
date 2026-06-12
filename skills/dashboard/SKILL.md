@@ -7,13 +7,13 @@ allowed-tools: mcp__plugin_agent-kevin_kevin__dashboard, Bash
 
 # Dashboard
 
-The Agent OS dashboard is the command center: a self-contained `index.html` at
+The Agent OS dashboard is the command center: a self-contained `dashboard.html` at
 the agent home, regenerated from current state on demand. No server, zero
 external requests.
 
 ## Run
 
-1. Rebuild the snapshot (one call refreshes both `index.html` and
+1. Rebuild the snapshot (one call refreshes both `dashboard.html` and
    `projects/TASKS.md` — the two derived views always regenerate together):
 
 ```
@@ -45,7 +45,7 @@ attention) · `projects` · `sessions` · `brain` (threads / memory / concepts /
 pipeline / lint) · `reports` · `capabilities` (cheatsheet / skills / tools /
 commands / reflexes) · `persona` · `system` (context / settings / logs) ·
 `profile` (reached via the operator card) · `status` (reached via the health
-badge). Sub-tabs deep-link: `index.html#tasks/attention`.
+badge). Sub-tabs deep-link: `dashboard.html#tasks/attention`.
 
 ## Notes
 

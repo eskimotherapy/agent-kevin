@@ -120,7 +120,7 @@ Groups:
   knowledge                         Wiki maintenance (lint)
   prune                             Delete memory/YYYY-MM-DD*.md older than 14 days
   links                             Rewrite bare task IDs + shorthand into [[wikilinks]]
-  dashboard                         Rebuild the Agent OS dashboard at <HOME>/index.html + projects/TASKS.md (open in any browser)
+  dashboard                         Rebuild the Agent OS dashboard at <HOME>/dashboard.html + projects/TASKS.md (open in any browser)
 
 Task commands:
   task query [--status=X] [--priority=P0-P3] [--project=NAME]
@@ -498,7 +498,7 @@ async function run(): Promise<void> {
 
   if (group === 'dashboard') {
     // The Agent OS dashboard replaced the old terminal TUI: regenerate
-    // TASKS.md + <HOME>/index.html and print where the snapshot landed.
+    // TASKS.md + <HOME>/dashboard.html and print where the snapshot landed.
     const { rebuildDashboards } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/status/html'));
     console.log(JSON.stringify(await rebuildDashboards(), null, 2));
     return;

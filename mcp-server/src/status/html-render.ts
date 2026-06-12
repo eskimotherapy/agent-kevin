@@ -1,6 +1,6 @@
 /**
  * Fills dashboard.html with a StatusSnapshot — the Agent OS dashboard at
- * `<HOME>/index.html`.
+ * `<HOME>/dashboard.html`.
  *
  * Life-OS framing: a left sidebar (Kevin's wordmark + pages + operator card)
  * and operator-first pages — Today, Work, Sessions, Brain, Reports,

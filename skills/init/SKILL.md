@@ -701,7 +701,7 @@ _No yearly goals set yet — run the yearly-goals skill to plan the year by quar
 <!-- GOALS:END -->
 ```
 
-After scaffolding, call `mcp__plugin_agent-kevin_kevin__dashboard` once so the file has its (empty) Active/Blocked/Overdue/Stale/Recently Closed sections rendered from day one — no scaffold drift (this also writes the first `index.html`).
+After scaffolding, call `mcp__plugin_agent-kevin_kevin__dashboard` once so the file has its (empty) Active/Blocked/Overdue/Stale/Recently Closed sections rendered from day one — no scaffold drift (this also writes the first `dashboard.html`).
 
 **Seed concept articles — preservation-aware.** Four bundled concepts describe the system itself (the wiki pattern, the task system, the feedback loop, the audit-premise-decay heuristic). Seeding them means a freshly-initialised home has working `[[concepts/*]]` wikilinks from day one instead of broken refs, and the operator can read them to understand the architecture they just installed.
 
@@ -767,7 +767,7 @@ Blank line, then the status block as plain prose (one row per line, two-space gu
 > ✅ Plugin reg    .claude/settings.json (auto-loads agent-kevin next launch — no `--plugin-dir` needed)
 > ✅ Knowledge     `<FACET_FILES_FILLED>/5` facets populated `<from blog · LinkedIn · GitHub, if Step 5 ran>`
 > ✅ Indexes       knowledge/index.md · knowledge/memory/index.md · projects/TASKS.md
-> ✅ Dashboard     index.html — open it in any browser; rebuilt by every sync or `/agent-kevin:dashboard`
+> ✅ Dashboard     dashboard.html — open it in any browser; rebuilt by every sync or `/agent-kevin:dashboard`
 > ✅ Concepts      4 seeded: karpathy-wiki · markdown-native-task-management · self-evolution-loop · audit-premise-decay
 > `<SKILL_PACK_ROW>`
 > ⏳ Custom skills none — author with `/agent-kevin:configure-skills`

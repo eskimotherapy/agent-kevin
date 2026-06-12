@@ -201,7 +201,7 @@ export const writeDashboard = (): DashboardCounts => {
 
 /**
  * The two derived views always regenerate together: TASKS.md (this module)
- * and the Agent OS dashboard at <HOME>/index.html (status/html). The HTML
+ * and the Agent OS dashboard at <HOME>/dashboard.html (status/html). The HTML
  * rebuild is fire-and-forget and coalesced — requests landing while one is
  * in flight mark it dirty, and a single follow-up rebuild picks up whatever
  * the in-flight snapshot missed.

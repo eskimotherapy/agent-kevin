@@ -123,7 +123,7 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
   cli: [
     {
       section: 'Groups',
-      entries: [{ cmd: 'status', desc: 'Rebuild the Agent OS dashboard at <HOME>/index.html' }]
+      entries: [{ cmd: 'status', desc: 'Rebuild the Agent OS dashboard at <HOME>/dashboard.html' }]
     }
   ],
   hooks: { count: 1, entries: [{ event: 'SessionStart', command: 'kevin session-start' }] },
@@ -462,7 +462,7 @@ describe('renderDashboardHtml', () => {
   test('brain lint tab and capabilities commands tab render', () => {
     const html = renderDashboardHtml(makeSnapshot());
     expect(html).toContain('memory/2026-06-07.md is sparse');
-    expect(html).toContain('Rebuild the Agent OS dashboard at &lt;HOME&gt;/index.html');
+    expect(html).toContain('Rebuild the Agent OS dashboard at &lt;HOME&gt;/dashboard.html');
     expect(html).toContain('class="chip auto"');
   });
 

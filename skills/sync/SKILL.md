@@ -1,6 +1,6 @@
 ---
 name: sync
-description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, refresh both dashboards (TASKS.md + index.html), then surface a briefing of what changed and what needs attention. Optionally chain into a morning or evening briefing. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
+description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, refresh both dashboards (TASKS.md + dashboard.html), then surface a briefing of what changed and what needs attention. Optionally chain into a morning or evening briefing. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 disable-model-invocation: true
 allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Write, Edit, Glob, Grep, Bash
 ---
@@ -93,7 +93,7 @@ Returns `{ unblocked, autoBlocked, autoClosed, overdue, stale, priorityBumps, pe
 
 ### 7. Read the dust-settled state
 
-First regenerate the dashboards so they snapshot the post-scan state (placement matters: step 6's task_scan auto-mutates task state, and the dashboards should reflect it). One call rebuilds both `<HOME>/index.html` and `projects/TASKS.md` — call it once here, nowhere else in sync:
+First regenerate the dashboards so they snapshot the post-scan state (placement matters: step 6's task_scan auto-mutates task state, and the dashboards should reflect it). One call rebuilds both `<HOME>/dashboard.html` and `projects/TASKS.md` — call it once here, nowhere else in sync:
 
 ```
 mcp__plugin_agent-kevin_kevin__dashboard
@@ -142,7 +142,7 @@ One block, tight. Skip empty sections — don't pad.
       - <overdue/stale items with suggested action — max 3>
       - <priority bumps if any>
 
-🖥 Dashboard — <HOME>/index.html refreshed
+🖥 Dashboard — <HOME>/dashboard.html refreshed
 
 ⚠️ Lint errors (if any)
   - <one line per error, with file path>

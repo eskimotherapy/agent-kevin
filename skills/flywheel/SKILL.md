@@ -23,7 +23,7 @@ mcp__plugin_agent-kevin_kevin__dashboard
 Read <HOME>/projects/TASKS.md
 ```
 
-`TASKS.md` is auto-rebuilt from task frontmatter on every mutation; refreshing first guarantees the view matches disk. The `dashboard` tool regenerates both views (`TASKS.md` + the Agent OS `index.html`) in one pass, so one call covers everything. The rendered sections (Active grouped by project, Blocked, Overdue, Stale, Recently Closed) are your action queue — no need to chain per-project queries to get the same picture.
+`TASKS.md` is auto-rebuilt from task frontmatter on every mutation; refreshing first guarantees the view matches disk. The `dashboard` tool regenerates both views (`TASKS.md` + the Agent OS `dashboard.html`) in one pass, so one call covers everything. The rendered sections (Active grouped by project, Blocked, Overdue, Stale, Recently Closed) are your action queue — no need to chain per-project queries to get the same picture.
 
 Then read `<HOME>/knowledge/memory/index.md` end to end for narrative context. The `## Active Threads` section explains the *why* behind the tasks. If it conflicts with `TASKS.md`, trust the dashboard — frontmatter is source of truth; memory index is a synthesis that the next compile will reconcile.
 
@@ -68,7 +68,7 @@ Briefly summarise to the user:
 - Concepts drafted (if any)
 - What you'd tackle next session
 
-Keep the summary tight. The thread entries on each task carry the detail. Both dashboards (`TASKS.md` + `index.html`) already re-rendered themselves after every mutation in this session — no manual `dashboard` call needed at wrap unless something seems off.
+Keep the summary tight. The thread entries on each task carry the detail. Both dashboards (`TASKS.md` + `dashboard.html`) already re-rendered themselves after every mutation in this session — no manual `dashboard` call needed at wrap unless something seems off.
 
 ### 7. Persist
 

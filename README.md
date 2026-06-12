@@ -129,7 +129,7 @@ graph LR
 <img src="assets/dashboard.png" alt="Kevin Agent OS dashboard" width="720" />
 </div>
 
-There's a lot going on inside an agent — and even more going on in your life around it. The **Agent OS dashboard** shows both: **your life through Kevin's eyes**. Every `/agent-kevin:sync` regenerates **`<HOME>/index.html`** — a dark mission-control page you open like any file (no server, no service). A left sidebar carries Kevin's wordmark, the page nav, your avatar, and the system-health badge; the pages are operator-first:
+There's a lot going on inside an agent — and even more going on in your life around it. The **Agent OS dashboard** shows both: **your life through Kevin's eyes**. Every `/agent-kevin:sync` regenerates **`<HOME>/dashboard.html`** — a dark mission-control page you open like any file (no server, no service). A left sidebar carries Kevin's wordmark, the page nav, your avatar, and the system-health badge; the pages are operator-first:
 
 - **Today** — a time-aware greeting and stat strip, with sub-tabs: the plan (focus, next 7 days, waiting-on), your weekly/monthly/yearly goals, a "today so far" activity trail (sessions, tasks touched, commands run, output produced), and a News tab of headlines harvested from recent briefings.
 - **Tasks** — the agenda grouped by due horizon (overdue → today → this week → this month → later) and a needs-attention view (blocked with reasons, going stale).
@@ -142,7 +142,7 @@ There's a lot going on inside an agent — and even more going on in your life a
 - **Persona** — Kevin's page: avatar, vibe, bio, core role, and soul traits rendered from IDENTITY.md and SOUL.md.
 - **System** — sub-tabs for context assembly, settings (per-scope layers with their allow/deny/env contributions), and a scrollable log tail.
 
-Pages and sub-tabs deep-link by hash (`index.html#work/projects`), text filters narrow tasks/sessions/skills/tools/reports live, every project carries a stable color across its badges, and the pulsing health badge jumps you to whatever needs attention. Markdown links (tasks, reports, concepts, memory) open through a configurable opener app so they land rendered and editable rather than downloading as raw text — `obsidian://open?path={path}&paneType=tab` by default (the `paneType=tab` opens notes in a new Obsidian tab so the dashboard stays put); set the `MARKDOWN_URL` env var in `.claude/settings.local.json` to point elsewhere, e.g.:
+Pages and sub-tabs deep-link by hash (`dashboard.html#work/projects`), text filters narrow tasks/sessions/skills/tools/reports live, every project carries a stable color across its badges, and the pulsing health badge jumps you to whatever needs attention. Markdown links (tasks, reports, concepts, memory) open through a configurable opener app so they land rendered and editable rather than downloading as raw text — `obsidian://open?path={path}&paneType=tab` by default (the `paneType=tab` opens notes in a new Obsidian tab so the dashboard stays put); set the `MARKDOWN_URL` env var in `.claude/settings.local.json` to point elsewhere, e.g.:
 
 ```json
 { "env": { "MARKDOWN_URL": "markedit://open?path={path}" } }
@@ -150,7 +150,7 @@ Pages and sub-tabs deep-link by hash (`index.html#work/projects`), text filters 
 
 **How to refresh it:** every `/agent-kevin:sync` does it automatically; `/agent-kevin:dashboard` rebuilds and opens it; `kevin dashboard` does the same from a terminal; the `dashboard` MCP tool is the programmatic hook. Every refresh also rebuilds `projects/TASKS.md` (and vice versa) — the two derived views always regenerate together. It's a **snapshot, not a live app** — the generated timestamp is in the footer. The file is fully self-contained and makes **zero external requests**: no CDN, no webfonts, no analytics. It renders identically offline, nothing on it leaves your machine, and regenerating it never mutates state.
 
-> ⚠️ Privacy note: `index.html` sits at your HOME root and reflects your tasks, knowledge stats, and (redacted) settings. If you ever publish that repo — e.g. enable GitHub Pages on it — this page publishes too. Keep agent homes private.
+> ⚠️ Privacy note: `dashboard.html` sits at your HOME root and reflects your tasks, knowledge stats, and (redacted) settings. If you ever publish that repo — e.g. enable GitHub Pages on it — this page publishes too. Keep agent homes private.
 
 ---
 
@@ -365,7 +365,7 @@ flowchart TD
     C5 -.advance · update · close.-> TASKMUT[(task frontmatter<br/>+ threads)]
     C5 -.unconditional sweep.-> ARCHIVE[(projects/&lt;slug&gt;/<br/>tasks/archive/)]
     C5 -.unconditional snapshot.-> FLYREP[/reports/briefings/<br/>flywheel/&lt;slug&gt;.md/]
-    C7 -.one call, both views.-> TASKS[/projects/TASKS.md<br/>+ index.html/]
+    C7 -.one call, both views.-> TASKS[/projects/TASKS.md<br/>+ dashboard.html/]
 ```
 
 The dependency order is the point: compile feeds the wiki state that lint operates on; lint's auto-fix touches the same articles the dashboard's task-link rewriter needs to be clean. Flywheel runs *after* the wiki is clean (so it reads a current memory index) and *before* scan + dashboard refresh (so both views reflect post-flywheel task state). Running steps out of order makes you re-reconcile.
@@ -669,7 +669,7 @@ kevin help     # full command reference
 | Group | What it does |
 |-------|--------------|
 | `kevin task <subcmd>` | Query, get, create, update, close, thread, scan tasks |
-| `kevin dashboard` | Rebuild both dashboards: `projects/TASKS.md` + the Agent OS page at `<HOME>/index.html` |
+| `kevin dashboard` | Rebuild both dashboards: `projects/TASKS.md` + the Agent OS page at `<HOME>/dashboard.html` |
 | `kevin knowledge lint [--fix]` | Structural wiki health check (broken links, orphans, missing backlinks, sparse, invalid frontmatter); `--fix` auto-rewrites links + inserts backlinks |
 | `kevin compile <subcmd>` | `status` (queue), `next` (peek), `write <id>` (mark complete). Synthesis itself runs in Claude Code via `/agent-kevin:knowledge-compile` |
 | `kevin prune` | Delete `memory/YYYY-MM-DD*.md` older than the retention window (14 days) |
@@ -859,7 +859,7 @@ A: For the LLM synthesis steps yes. The MCP server is pure I/O, returning prompt
 1. **CC must open in `<HOME>`** for static identity to load. Outside, you only get the dynamic lane.
 2. **Sandbox can block `.claude/skills/` writes** during `/agent-kevin:configure-skills`. Pre-create the dir from a normal terminal if it hits the wall.
 3. **Playwright + macOS sandbox.** Browser launch can fail inside CC's sandboxed subprocesses (XPC walls). Workaround: install playwright manually in a normal terminal so chromium caches.
-4. **No live GUI.** The [Agent OS dashboard](#%EF%B8%8F-the-agent-os-dashboard) at `<HOME>/index.html` is a static snapshot regenerated on sync (or `kevin dashboard`), not a served app — between syncs it can drift from task frontmatter.
+4. **No live GUI.** The [Agent OS dashboard](#%EF%B8%8F-the-agent-os-dashboard) at `<HOME>/dashboard.html` is a static snapshot regenerated on sync (or `kevin dashboard`), not a served app — between syncs it can drift from task frontmatter.
 5. **Single-user.** Multi-user / team-isolation isn't built in. Workaround: separate homes per user.
 6. **No proactive Kevin.** See [Claude Code Billing](#claude-code-billing). External schedulers can run Kevin via `claude --print`, but those calls bill against API quota, not your subscription.
 
