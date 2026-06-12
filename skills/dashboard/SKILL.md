@@ -28,16 +28,23 @@ Returns `{ path, bytes, tasks }`.
 open "<path from step 1>"
 ```
 
-3. Reply with one line: the dashboard is open, plus anything the health badge
-   would flag (the tool result alone doesn't carry health — skip unless asked).
+   If `open` errors (sandboxed or restricted setups block app launches), skip
+   this step entirely — do NOT retry with `open -a`, specific browsers, or any
+   other launcher. Just include the `file://` path in your reply so the user
+   can open it themselves.
+
+3. Reply with one line: the dashboard is rebuilt (and open, if the launch
+   worked), plus anything the health badge would flag (the tool result alone
+   doesn't carry health — skip unless asked).
 
 ## Pages
 
-`today` (plan + today-so-far activity) · `work` (agenda / projects / needs
-attention) · `sessions` · `brain` (threads / concepts / memory / pipeline) ·
-`reports` · `capabilities` (cheatsheet / skills / tools / reflexes) ·
-`persona` · `system` (context / settings / logs). Sub-tabs deep-link:
-`index.html#work/projects`.
+`today` (plan / goals / today-so-far / news) · `tasks` (agenda / needs
+attention) · `projects` · `sessions` · `brain` (threads / memory / concepts /
+pipeline / lint) · `reports` · `capabilities` (cheatsheet / skills / tools /
+commands / reflexes) · `persona` · `system` (context / settings / logs) ·
+`profile` (reached via the operator card) · `status` (reached via the health
+badge). Sub-tabs deep-link: `index.html#tasks/attention`.
 
 ## Notes
 

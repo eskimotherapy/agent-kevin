@@ -9,21 +9,9 @@
 import { FOLDERS } from '@/config';
 import type { TaskFile, TaskFrontmatter } from '@/shared/types';
 import { daysAgoDate, todayDate } from '@/shared/date';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { discoverProjects } from './scan';
-import { parseTaskFile } from './schema';
-
-/** Read every task file under every discovered project. Skips `tasks/archive/`. */
-export const scanProjectTasks = (): TaskFile[] =>
-  discoverProjects().flatMap((project) => {
-    const dir = join(FOLDERS.PROJECTS, project, 'tasks');
-    if (!existsSync(dir)) return [];
-    return readdirSync(dir)
-      .filter((f) => f.endsWith('.md') && !f.startsWith('.'))
-      .map((f) => parseTaskFile(join(dir, f)))
-      .filter((t): t is TaskFile => t !== null);
-  });
+import { scanAllTasks } from './scan';
 
 // ── Section building ──────────────────────────────────────────────────
 
@@ -162,7 +150,7 @@ _No weekly goals set yet — run the weekly-goals skill to set them._
 
 ## Monthly Goals
 
-_No monthly goals set yet — run the monthly-goals skill (Kevin proposes on the 1st of each Hijri month)._
+_No monthly goals set yet — run the monthly-goals skill._
 
 ## Yearly Goals
 
@@ -205,7 +193,7 @@ export const writeDashboard = (): DashboardCounts => {
   }
   const goalsBlock = extractGoalsBlock(existing);
 
-  const sections = buildSections(scanProjectTasks());
+  const sections = buildSections(scanAllTasks());
   writeFileSync(tasksFile, formatDashboard(sections, goalsBlock));
 
   return sectionCounts(sections);
@@ -214,13 +202,18 @@ export const writeDashboard = (): DashboardCounts => {
 /**
  * The two derived views always regenerate together: TASKS.md (this module)
  * and the Agent OS dashboard at <HOME>/index.html (status/html). The HTML
- * rebuild is fire-and-forget and coalesced — overlapping requests collapse
- * into the one in flight, so a burst of mutations costs one snapshot.
+ * rebuild is fire-and-forget and coalesced — requests landing while one is
+ * in flight mark it dirty, and a single follow-up rebuild picks up whatever
+ * the in-flight snapshot missed.
  */
 let htmlInFlight = false;
+let htmlDirty = false;
 
 const rebuildHtmlSafe = (): void => {
-  if (htmlInFlight) return;
+  if (htmlInFlight) {
+    htmlDirty = true;
+    return;
+  }
   htmlInFlight = true;
   void import('@/status/html')
     .then(({ writeDashboardHtml }) => writeDashboardHtml())
@@ -230,6 +223,10 @@ const rebuildHtmlSafe = (): void => {
     })
     .finally(() => {
       htmlInFlight = false;
+      if (htmlDirty) {
+        htmlDirty = false;
+        rebuildHtmlSafe();
+      }
     });
 };
 

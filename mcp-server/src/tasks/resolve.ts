@@ -30,9 +30,10 @@ const isOverdue = (task: TaskFile): boolean => {
   return task.frontmatter.due < todayDate();
 };
 
-/** Check if a task is stale (no update in 7+ days). */
+/** Check if a task is stale (not closed, no update in 7+ days) — same
+ *  definition TASKS.md's Stale section uses, so the two views agree. */
 const isStale = (task: TaskFile): boolean => {
-  if (task.frontmatter.status !== 'active') return false;
+  if (task.frontmatter.status === 'done' || task.frontmatter.status === 'cancelled') return false;
   if (!task.frontmatter.updated) return false;
   return task.frontmatter.updated < daysAgoDate(7);
 };

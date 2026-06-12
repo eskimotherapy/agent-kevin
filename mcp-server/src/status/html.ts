@@ -6,6 +6,7 @@
  */
 import { FILES } from '@/config';
 import { writeFileAtomic } from '@/shared/utils';
+import { writeDashboard, type DashboardCounts } from '@/tasks/dashboard';
 import { collectStatus } from './collect';
 import { renderDashboardHtml } from './html-render';
 
@@ -14,4 +15,16 @@ export const writeDashboardHtml = async (): Promise<{ path: string; bytes: numbe
   const html = renderDashboardHtml(await collectStatus());
   writeFileAtomic(FILES.DASHBOARD, html);
   return { path: FILES.DASHBOARD, bytes: Buffer.byteLength(html) };
+};
+
+/** Rebuild both derived views — TASKS.md first (best-effort), then the HTML
+ *  snapshot (the contract). Shared by the `dashboard` MCP tool and the CLI. */
+export const rebuildDashboards = async (): Promise<{ path: string; bytes: number; tasks: DashboardCounts | null }> => {
+  let tasks: DashboardCounts | null = null;
+  try {
+    tasks = writeDashboard();
+  } catch {
+    // TASKS.md is best-effort here — the HTML snapshot is the contract
+  }
+  return { ...(await writeDashboardHtml()), tasks };
 };

@@ -1,6 +1,5 @@
-import { writeDashboardHtml } from '@/status/html';
+import { rebuildDashboards } from '@/status/html';
 import { defineTool, type ToolDef } from '@/shared/types';
-import { writeDashboard, type DashboardCounts } from '@/tasks/dashboard';
 
 export const tools: ToolDef[] = [
   defineTool({
@@ -11,14 +10,6 @@ export const tools: ToolDef[] = [
       'dashboard from a fresh status snapshot). Self-contained, no server, zero external requests. Task mutations ' +
       'refresh both automatically; invoke explicitly to force a refresh.',
     inputSchema: {},
-    handler: async () => {
-      let tasks: DashboardCounts | null = null;
-      try {
-        tasks = writeDashboard();
-      } catch {
-        // TASKS.md is best-effort here — the HTML snapshot is the contract
-      }
-      return { ...(await writeDashboardHtml()), tasks };
-    }
+    handler: async () => rebuildDashboards()
   })
 ];

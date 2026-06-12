@@ -26,11 +26,6 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     pluginName: 'agent-kevin',
     home: '/tmp/home',
     pluginRoot: '/tmp/plugin',
-    knowledgePath: '/tmp/home/knowledge',
-    projectsPath: '/tmp/home/projects',
-    reportsPath: '/tmp/home/reports',
-    statePath: '/tmp/home/.kevin',
-    logsPath: '/tmp/home/.kevin/logs',
     timezone: 'Asia/Kuala_Lumpur',
     date: 'Thu 11 Jun',
     isoDate: '2026-06-11',
@@ -57,17 +52,13 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
   },
   skills: {
     count: 2,
-    names: ['sync', 'status'],
-    custom: 0,
     details: [
       { name: 'sync', description: 'End-to-end refresh of every derived view.', custom: false, auto: false },
       { name: 'status', description: 'Command-center overview of the whole agent.', custom: false, auto: true }
     ]
   },
   mcp: {
-    servers: ['kevin'],
     toolCount: 2,
-    tools: ['mcp__kevin__task_scan', 'mcp__kevin__dashboard'],
     toolDetails: [
       { name: 'mcp__kevin__dashboard', description: 'Rebuild TASKS.md + the Agent OS dashboard.' },
       { name: 'mcp__kevin__task_scan', description: 'Resolve cross-task state.' }
@@ -90,6 +81,7 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       id: 'abc12345',
       firstSeen: '2026-06-11',
       lastSeen: '2026-06-11',
+      time: '09:12',
       turns: 13,
       cwd: '~/Documents/Agents/Kevin',
       briefing: 'Morning sync and MDEC portal work',
@@ -99,9 +91,10 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       id: 'cmd00001',
       firstSeen: '2026-06-11',
       lastSeen: '2026-06-11',
+      time: '09:45',
       turns: 4,
       cwd: '/tmp/elsewhere',
-      briefing: 'agent-kevin:sync morning',
+      briefing: '/agent-kevin:sync morning',
       isCommand: true
     }
   ],
@@ -111,6 +104,12 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       title: 'Claude Fable 5 released',
       url: 'https://example.com/fable',
       source: 'Anthropic, Jun 9'
+    },
+    {
+      date: '2026-06-11',
+      title: 'NEEP Category-I EP salary RM20K/mo confirmed',
+      url: '',
+      source: 'MOHA, Jun 9'
     }
   ],
   lint: {
@@ -127,10 +126,9 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       entries: [{ cmd: 'status', desc: 'Rebuild the Agent OS dashboard at <HOME>/index.html' }]
     }
   ],
-  hooks: { events: ['SessionStart'], count: 1, entries: [{ event: 'SessionStart', command: 'kevin session-start' }] },
+  hooks: { count: 1, entries: [{ event: 'SessionStart', command: 'kevin session-start' }] },
   knowledge: {
     concepts: 1,
-    conceptNames: ['flywheel-model'],
     conceptDetails: [
       {
         name: 'flywheel-model',
@@ -138,7 +136,6 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
         href: 'knowledge/concepts/flywheel-model.md'
       }
     ],
-    userFacets: 1,
     facets: [{ name: 'profile', bytes: 1024 }],
     memoryDaily: 3,
     memoryIndexBytes: 2048,
@@ -148,13 +145,13 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     feedbackBytes: 512,
     totalBytes: 100_000,
     sessionsWeek: [
-      { day: '2026-06-05', label: 'Fri', bytes: 0 },
-      { day: '2026-06-06', label: 'Sat', bytes: 100 },
-      { day: '2026-06-07', label: 'Sun', bytes: 0 },
-      { day: '2026-06-08', label: 'Mon', bytes: 2000 },
-      { day: '2026-06-09', label: 'Tue', bytes: 300 },
-      { day: '2026-06-10', label: 'Wed', bytes: 0 },
-      { day: '2026-06-11', label: 'Thu', bytes: 50 }
+      { label: 'Fri', bytes: 0 },
+      { label: 'Sat', bytes: 100 },
+      { label: 'Sun', bytes: 0 },
+      { label: 'Mon', bytes: 2000 },
+      { label: 'Tue', bytes: 300 },
+      { label: 'Wed', bytes: 0 },
+      { label: 'Thu', bytes: 50 }
     ]
   },
   compile: {
@@ -162,16 +159,13 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     sessionFiles: 10,
     pending: 0,
     lastCompiled: '2026-06-11T01:00:00Z',
-    totalCostUsd: 1.23,
-    recent: [{ day: '2026-06-10', cost: 0.5, at: '2026-06-11T01:00:00Z' }]
+    totalCostUsd: 1.23
   },
   tasks: {
     active: 1,
     blocked: 1,
-    open: 1,
     stale: 0,
     overdue: 0,
-    total: 3,
     projects: 1,
     byProject: [
       {
@@ -202,7 +196,6 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     touchedToday: [taskRef({ id: 'lo-002', title: 'Due today task', updated: '2026-06-11' })]
   },
   context: {
-    source: '/tmp/home/CLAUDE.md',
     staticImports: [
       { label: 'SOUL.md', bytes: 100, present: true, group: 'identity' },
       { label: 'knowledge/index.md', bytes: 200, present: true, group: 'knowledge' }
@@ -227,7 +220,6 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
   logs: {
     path: '/tmp/home/.kevin/logs/app.log',
     bytes: 1000,
-    mtime: '10:00',
     warnings: 0,
     errors: 0,
     totalWarnings: 3,
@@ -246,7 +238,7 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     }
   ],
   reportsTotal: 12,
-  health: { overdue: 0, stale: 0, pendingCompiles: 0, logErrors: 0, missingImports: 0, ok: true },
+  health: { overdue: 0, pendingCompiles: 0, logErrors: 0, missingImports: 0, ok: true },
   ...overrides
 });
 
@@ -260,8 +252,9 @@ describe('renderDashboardHtml', () => {
       expect(hasNavItem).toBe(!('hidden' in item && item.hidden));
     }
     expect(html.match(/<!doctype html>/g)?.length).toBe(1);
-    // Healthy snapshots render no badge at all — only problems earn pixels.
-    expect(html).not.toContain('class="badge');
+    // Healthy snapshots show the green badge; it routes to the Status page.
+    expect(html).toContain('class="badge ok" data-nav="status"');
+    expect(html).toContain('all nominal');
     expect(html).toContain('Good morning, Basem');
   });
 
@@ -386,8 +379,84 @@ describe('renderDashboardHtml', () => {
     const html = renderDashboardHtml(makeSnapshot());
     expect(html).toContain('Q3: land MD Status; Q4: first customer');
     expect(html).toContain('href="https://example.com/fable"');
-    expect(html).toContain('⌘ Commands · 1');
+    // Link-less headlines render as plain text, never as empty anchors.
+    expect(html).toContain('NEEP Category-I EP salary RM20K/mo confirmed');
+    expect(html).not.toContain('href=""');
+    expect(html).toContain('⚡ Commands · 1');
     expect(html).toContain('💬 Sessions · 1');
+  });
+
+  test('unset goals show the run-the-skill hint', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    expect(html).toContain('No weekly goals set yet, run the weekly-goals skill.');
+  });
+
+  test('today feed spans the last 24h: yesterday in, two days ago out', () => {
+    const base = makeSnapshot();
+    const html = renderDashboardHtml(
+      makeSnapshot({
+        sessions: [
+          ...base.sessions,
+          {
+            id: 'late00001',
+            firstSeen: '2026-06-10',
+            lastSeen: '2026-06-10',
+            time: '23:40',
+            turns: 7,
+            cwd: '~/Documents/Agents/Kevin',
+            briefing: 'Late-night portal fixes',
+            isCommand: false
+          },
+          {
+            id: 'old000001',
+            firstSeen: '2026-06-09',
+            lastSeen: '2026-06-09',
+            time: '',
+            turns: 3,
+            cwd: '~/Documents/Agents/Kevin',
+            briefing: 'Two-days-ago session',
+            isCommand: false
+          }
+        ]
+      })
+    );
+    const today = html.slice(html.indexOf('data-page="today"'), html.indexOf('data-page="tasks"'));
+    expect(today).toContain('Late-night portal fixes');
+    expect(today).not.toContain('Two-days-ago session');
+    // Feed rows carry timestamps; yesterday's rows are marked as such.
+    expect(today).toContain('09:12');
+    expect(today).toContain('yd 23:40');
+  });
+
+  test('resumed sessions wear a since-chip explaining their old briefing', () => {
+    const base = makeSnapshot();
+    const html = renderDashboardHtml(
+      makeSnapshot({
+        sessions: [
+          ...base.sessions,
+          {
+            id: 'longrun01',
+            firstSeen: '2026-05-28',
+            lastSeen: '2026-06-11',
+            time: '08:02',
+            turns: 405,
+            cwd: '~/Documents/Agents/Kevin',
+            briefing: 'A briefing from two weeks ago',
+            isCommand: false
+          }
+        ]
+      })
+    );
+    expect(html).toContain('↩ since 2026-05-28');
+  });
+
+  test('persona interleaves identity and soul sections, identity first', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    const personaPage = html.slice(html.indexOf('data-page="persona"'), html.indexOf('data-page="system"'));
+    expect(personaPage.indexOf('Core Role')).toBeGreaterThan(-1);
+    expect(personaPage.indexOf('Core Role')).toBeLessThan(personaPage.indexOf('>Vibe<'));
+    expect(personaPage).toContain('>Files<');
+    expect(personaPage).not.toContain('Identity files');
   });
 
   test('brain lint tab and capabilities commands tab render', () => {
@@ -405,17 +474,36 @@ describe('renderDashboardHtml', () => {
     expect(sessions).toContain('13 turns');
   });
 
-  test('unhealthy snapshot names the issues and anchors them', () => {
+  test('unhealthy snapshot names the issues and routes to the status page', () => {
     const base = makeSnapshot();
     const html = renderDashboardHtml(
       makeSnapshot({
         tasks: { ...base.tasks, overdue: 2, overdueList: [taskRef(), taskRef({ id: 'lo-009' })] },
-        health: { overdue: 2, stale: 0, pendingCompiles: 1, logErrors: 0, missingImports: 0, ok: false }
+        health: { overdue: 2, pendingCompiles: 1, logErrors: 0, missingImports: 0, ok: false }
       })
     );
-    expect(html).toContain('class="badge warn"');
+    expect(html).toContain('class="badge warn" data-nav="status"');
     expect(html).toContain('2 overdue · 1 pending');
-    expect(html).toContain('data-issue');
+    const status = html.slice(html.indexOf('data-page="status"'));
+    expect(status).toContain('2 signal(s) need attention');
+    expect(status).toContain('lo-009');
+  });
+
+  test('status page explains every signal with derivations and jump links', () => {
+    const base = makeSnapshot();
+    const html = renderDashboardHtml(makeSnapshot({ tasks: { ...base.tasks, stale: 3 } }));
+    const status = html.slice(html.indexOf('data-page="status"'));
+    expect(status).toContain('All systems nominal');
+    expect(status).toContain('Nothing past due.');
+    expect(status).toContain('Everything captured has been compiled.');
+    expect(status).toContain('No errors logged today.');
+    expect(status).toContain('All static imports present.');
+    expect(status).toContain('data-nav="system/logs"');
+    // Stale is informational: linked for review but never trips the badge.
+    expect(status).toContain('data-nav="tasks/attention"');
+    expect(html).toContain('class="badge ok"');
+    // Hidden page: routes but earns no sidebar item.
+    expect(html).not.toContain('class="nav-item" data-nav="status"');
   });
 
   test('renders pre-redacted secrets verbatim, never raw values', () => {

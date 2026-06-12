@@ -11,41 +11,14 @@ import { log } from '@/shared/log';
 import type { ToolDef } from '@/shared/types';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { tools as browserFlowsTools } from './tools/browser-flows';
-import { tools as captureTools } from './tools/capture';
-import { tools as compileTools } from './tools/compile';
-import { tools as pageSpeedTools } from './tools/google-page-speed';
-import { tools as gscTools } from './tools/google-search-console';
-import { tools as knowledgeTools } from './tools/knowledge';
-import { tools as openPageRankTools } from './tools/open-page-rank';
-import { tools as perplexityTools } from './tools/perplexity';
-import { tools as pingTools } from './tools/ping';
-import { tools as playwrightTools } from './tools/playwright';
-import { tools as reportTools } from './tools/reports';
-import { tools as serpapiTools } from './tools/serpapi';
-import { tools as statusTools } from './tools/status';
-import { tools as taskTools } from './tools/tasks';
+import { TOOL_MODULES } from './tools/modules';
 
-// google-auth.ts only exports OAuth helpers used by gsc + page-speed tools.
-// The `google_auth` MCP tool itself is defined inside google-search-console.ts
-// (it shares the same auth-flow code path), so no separate import needed here.
-
-const TOOLS: ToolDef[] = [
-  ...pingTools,
-  ...taskTools,
-  ...knowledgeTools,
-  ...compileTools,
-  ...captureTools,
-  ...serpapiTools,
-  ...perplexityTools,
-  ...openPageRankTools,
-  ...gscTools,
-  ...pageSpeedTools,
-  ...playwrightTools,
-  ...reportTools,
-  ...browserFlowsTools,
-  ...statusTools
-];
+// Tool modules load from the shared TOOL_MODULES list so registration and
+// the dashboard's capability listing can never drift. A broken module still
+// fails the boot — Promise.all rejects before the server connects.
+const TOOLS: ToolDef[] = (
+  await Promise.all(TOOL_MODULES.map(async (name): Promise<{ tools: ToolDef[] }> => import(`./tools/${name}`)))
+).flatMap((mod) => mod.tools);
 
 const server = new McpServer({ name: 'kevin', version: '0.1.0' });
 

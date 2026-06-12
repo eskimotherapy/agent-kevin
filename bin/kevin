@@ -498,17 +498,9 @@ async function run(): Promise<void> {
 
   if (group === 'dashboard') {
     // The Agent OS dashboard replaced the old terminal TUI: regenerate
-    // <HOME>/index.html from a fresh snapshot and print where it landed.
-    // TASKS.md rebuilds first — the two derived views always refresh together.
-    const { writeDashboard } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/tasks/dashboard'));
-    const { writeDashboardHtml } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/status/html'));
-    let tasks = null;
-    try {
-      tasks = writeDashboard();
-    } catch {
-      // best-effort — the HTML snapshot is the contract here
-    }
-    console.log(JSON.stringify({ ...(await writeDashboardHtml()), tasks }, null, 2));
+    // TASKS.md + <HOME>/index.html and print where the snapshot landed.
+    const { rebuildDashboards } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/status/html'));
+    console.log(JSON.stringify(await rebuildDashboards(), null, 2));
     return;
   }
 

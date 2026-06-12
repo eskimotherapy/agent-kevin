@@ -42,7 +42,8 @@ export const PAGES = [
   { id: 'capabilities', icon: '🧩', label: 'Capabilities' },
   { id: 'profile', icon: '👤', label: 'Profile', hidden: true },
   { id: 'persona', icon: '🍌', label: 'Persona' },
-  { id: 'system', icon: '⚙️', label: 'System' }
+  { id: 'system', icon: '⚙️', label: 'System' },
+  { id: 'status', icon: '🩺', label: 'Status', hidden: true }
 ] as const;
 
 export const escapeHtml = (text: string): string =>
@@ -203,17 +204,9 @@ const taskRow = (ref: TaskRef, snap: StatusSnapshot, options: TaskRowOptions = {
   )}">${esc(ref.priority)}</span></summary><div class="taskbody">${esc(details.join(' · '))}${open}</div></details>`;
 };
 
-const taskGroup = (
-  title: string,
-  refs: TaskRef[],
-  snap: StatusSnapshot,
-  issue = false,
-  options: TaskRowOptions = {}
-): string =>
+const taskGroup = (title: string, refs: TaskRef[], snap: StatusSnapshot, options: TaskRowOptions = {}): string =>
   refs.length
-    ? `<h3 class="group"${issue ? ' data-issue' : ''}>${esc(title)} · ${refs.length}</h3>${refs
-        .map((ref) => taskRow(ref, snap, options))
-        .join('')}`
+    ? `<h3 class="group">${esc(title)} · ${refs.length}</h3>${refs.map((ref) => taskRow(ref, snap, options)).join('')}`
     : '';
 
 // ── pages ─────────────────────────────────────────────────────────────
@@ -226,15 +219,16 @@ const reportRow = (report: ReportRef, snap: StatusSnapshot): string => {
 };
 
 const pageToday = (snap: StatusSnapshot): string => {
-  const { tasks, runtime, compile, knowledge, goals, health } = snap;
+  const { tasks, runtime, compile, knowledge, goals } = snap;
   const today = runtime.isoDate;
   const hour = parseInt(runtime.time.slice(0, 2), 10) || 0;
   const part = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   const name = snap.operator.name ? `, ${esc(snap.operator.name)}` : '';
 
   const dueToday = tasks.queue.filter((ref) => ref.due === today && ref.status !== 'blocked');
+  // Blocked tasks live in "Waiting on" — keep them out of the due lists.
   const dueWeek = tasks.queue.filter((ref) => {
-    if (!ref.due) return false;
+    if (!ref.due || ref.status === 'blocked') return false;
     const days = daysBetween(today, ref.due);
     return days > 0 && days <= 7;
   });
@@ -255,7 +249,7 @@ const pageToday = (snap: StatusSnapshot): string => {
     `<div class="goalcard"><h3 class="group"><span class="gicon">${icon}</span>${esc(label)}</h3>${
       lines.length
         ? `<ul class="plain">${lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>`
-        : hint('not set yet')
+        : hint(`No ${label.toLowerCase()} goals set yet, run the ${label.toLowerCase()}-goals skill.`)
     }</div>`;
   const goalsBody =
     goalCard('🗓', 'Weekly', goals.weekly) +
@@ -264,7 +258,7 @@ const pageToday = (snap: StatusSnapshot): string => {
 
   const focus =
     [
-      taskGroup('⏰ Overdue', tasks.overdueList, snap, health.overdue > 0),
+      taskGroup('⏰ Overdue', tasks.overdueList, snap),
       taskGroup('📅 Due today', dueToday, snap),
       taskGroup('▶ In flight', active, snap)
     ].join('') || hint('Nothing due, nothing overdue, nothing in flight. Clear runway.');
@@ -285,7 +279,9 @@ const pageToday = (snap: StatusSnapshot): string => {
   // The grounding feed covers the last ~24h so it survives midnight: sessions
   // and tasks carry date-only stamps (today + yesterday); reports have times
   // and filter precisely. Sessions with nothing captured are noise — dropped.
-  const yesterday = new Date(Date.parse(`${today}T00:00:00`) - 86_400_000).toISOString().slice(0, 10);
+  // `today` is already timezone-anchored, so do the day arithmetic in UTC —
+  // a local parse + toISOString round-trip lands on the wrong day in UTC+ zones.
+  const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
   const inWindow = (sessionRef: (typeof snap.sessions)[number]) =>
     (sessionRef.lastSeen === today || sessionRef.lastSeen === yesterday) && Boolean(sessionRef.briefing);
   const sessionsToday = snap.sessions.filter((sessionRef) => inWindow(sessionRef) && !sessionRef.isCommand);
@@ -294,10 +290,12 @@ const pageToday = (snap: StatusSnapshot): string => {
     (report) => report.date === today || (report.date === yesterday && report.time > runtime.time)
   );
   const touched = tasks.touchedToday;
-  const sessionFeedRow = (sessionRef: (typeof snap.sessions)[number]): string =>
-    `<div class="row"><span class="grow">${esc(
-      truncate(sessionRef.briefing || '(local-command session)', 140)
-    )}</span><span class="dim" style="flex:none">${sessionRef.turns} turns</span></div>`;
+  const sessionFeedRow = (sessionRef: (typeof snap.sessions)[number]): string => {
+    const when = sessionRef.lastSeen === yesterday ? `yd ${sessionRef.time}`.trim() : sessionRef.time;
+    return `<div class="row"><span class="dim nowrap" style="flex:none;min-width:48px">${esc(when || '—')}</span><span class="grow">${esc(
+      truncate(sessionRef.briefing || '(local-command session)', 300)
+    )}</span><div class="nowrap" style="flex:none;text-align:right"><div class="dim">${sessionRef.turns} turns</div>${resumedChip(sessionRef)}</div></div>`;
+  };
   const sessionRows = sessionsToday.map(sessionFeedRow);
   const commandRows = commandsToday.map(sessionFeedRow);
   const touchedRows = touched.map(
@@ -316,7 +314,7 @@ const pageToday = (snap: StatusSnapshot): string => {
           touchedRows.length
             ? `<h3 class="group">✏️ Tasks touched · ${touchedRows.length}</h3>${touchedRows.join('')}`
             : '',
-          commandRows.length ? `<h3 class="group">⌘ Commands · ${commandRows.length}</h3>${commandRows.join('')}` : '',
+          commandRows.length ? `<h3 class="group">⚡ Commands · ${commandRows.length}</h3>${commandRows.join('')}` : '',
           outputRows.length ? `<h3 class="group">📰 Output · ${outputRows.length}</h3>${outputRows.join('')}` : ''
         ].join('')
       : hint('Nothing yet today — it all lands here as you work.');
@@ -343,7 +341,7 @@ const pageToday = (snap: StatusSnapshot): string => {
             `<h3 class="group date">${esc(date || 'undated')}</h3>${items
               .map(
                 (item) =>
-                  `<div class="row" data-row><span class="grow">${extLink(item.url, item.title)}</span>${
+                  `<div class="row" data-row><span class="grow">${item.url ? extLink(item.url, item.title) : esc(item.title)}</span>${
                     item.source ? `<span class="chip">${esc(item.source)}</span>` : ''
                   }</div>`
               )
@@ -383,9 +381,9 @@ const projectCard = (load: ProjectLoad, snap: StatusSnapshot): string => {
   const noProject = { noProject: true };
   const taskRows =
     [
-      taskGroup('▶ Active', ofStatus('active'), snap, false, noProject),
-      taskGroup('○ Open', ofStatus('open'), snap, false, noProject),
-      taskGroup('⛔ Blocked', ofStatus('blocked'), snap, false, noProject)
+      taskGroup('▶ Active', ofStatus('active'), snap, noProject),
+      taskGroup('○ Open', ofStatus('open'), snap, noProject),
+      taskGroup('⛔ Blocked', ofStatus('blocked'), snap, noProject)
     ].join('') || hint('No live tasks — all done or archived.');
   const counts = [
     load.active && `<span class="good">${load.active} active</span>`,
@@ -484,6 +482,13 @@ const WEEK_COLORS = [
   'var(--text)'
 ];
 
+/** Sessions started on an earlier day wear that day's briefing — mark them
+ *  so an old-sounding entry under today's date reads as a resume, not noise. */
+const resumedChip = (sessionRef: StatusSnapshot['sessions'][number]): string =>
+  sessionRef.firstSeen && sessionRef.firstSeen !== sessionRef.lastSeen
+    ? `<span class="chip" title="resumed session — started ${esc(sessionRef.firstSeen)}">↩ since ${esc(sessionRef.firstSeen)}</span>`
+    : '';
+
 const pageSessions = (snap: StatusSnapshot): string => {
   const week = snap.knowledge.sessionsWeek;
   const volume =
@@ -504,7 +509,7 @@ const pageSessions = (snap: StatusSnapshot): string => {
     const where = cwd && cwd !== homeTilde ? `<div class="sess-cwd">${pathLink(sessionRef.cwd)}</div>` : '';
     return `<div class="row" data-row><span class="sess-turns nowrap" style="flex:none">${sessionRef.turns} turns</span><div class="grow"><div>${esc(
       truncate(sessionRef.briefing, 240)
-    )}</div>${where}</div></div>`;
+    )}</div>${where}</div>${resumedChip(sessionRef)}</div>`;
   };
   const byDay = new Map<string, typeof conversations>();
   for (const sessionRef of conversations) {
@@ -580,7 +585,7 @@ const pageBrain = (snap: StatusSnapshot): string => {
           [
             'pending',
             compile.pending > 0
-              ? `<span class="warn" data-issue>${compile.pending} session(s) waiting for /${esc(snap.runtime.pluginName)}:sync</span>`
+              ? `<span class="warn">${compile.pending} session(s) waiting for /${esc(snap.runtime.pluginName)}:sync</span>`
               : '<span class="dim">0 — fully absorbed</span>'
           ],
           ['last compiled', esc(relTime(compile.lastCompiled))],
@@ -862,16 +867,24 @@ const pagePersona = (snap: StatusSnapshot): string => {
   const avatar = persona.avatar ? `<img src="${esc(persona.avatar)}" alt="${esc(persona.name)}">` : '';
   const head = `<div class="persona-head">${avatar}<div><div class="p-name">${esc(persona.name)} ${esc(persona.emoji)}</div><div class="p-kind">${esc(persona.kind)}</div><div class="p-vibe">${esc(persona.vibe)}</div></div></div>`;
   const bio = persona.bio ? `<p class="bio">${esc(persona.bio)}</p>` : '';
-  const personaSections = (sections: ProfileSection[], source: string): string =>
-    sections
-      .map((item) =>
-        section(
-          item.title,
-          `from ${source}`,
-          `<ul class="plain">${item.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>`
-        )
+  // Interleave the two files in source order (identity first, then soul) so
+  // the page alternates what-he-does with who-he-is instead of dumping one
+  // file after the other.
+  const labelled = (sections: ProfileSection[], source: string) => sections.map((item) => ({ ...item, source }));
+  const identity = labelled(persona.identitySections, 'IDENTITY.md');
+  const soul = labelled(persona.soulSections, 'SOUL.md');
+  const interleaved = Array.from({ length: Math.max(identity.length, soul.length) }, (_, i) => i).flatMap((i) =>
+    [identity[i], soul[i]].filter((item): item is (typeof identity)[number] => Boolean(item))
+  );
+  const personaSections = interleaved
+    .map((item) =>
+      section(
+        item.title,
+        `from ${item.source}`,
+        `<ul class="plain">${item.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>`
       )
-      .join('');
+    )
+    .join('');
   const runtimeRows = table(
     [],
     [
@@ -890,11 +903,9 @@ const pagePersona = (snap: StatusSnapshot): string => {
     [
       head,
       bio,
-      personaSections(persona.identitySections, 'IDENTITY.md') ||
-        section('Identity', 'from IDENTITY.md', hint('(not written yet)')),
-      personaSections(persona.soulSections, 'SOUL.md') || section('Soul', 'from SOUL.md', hint('(not written yet)')),
+      personaSections || section('Identity', 'from IDENTITY.md + SOUL.md', hint('(not written yet)')),
       section(
-        'Identity files',
+        'Files',
         '',
         `<div class="row"><span class="grow dim">${esc(persona.name)}'s character and role — edit these to evolve them.</span><span class="nowrap">${mdLink(snap, 'SOUL.md', 'SOUL.md')} · ${mdLink(snap, 'IDENTITY.md', 'IDENTITY.md')}</span></div>`
       ),
@@ -919,7 +930,7 @@ const MANIFEST_ICON: Record<ManifestEntry['status'], { icon: string; cls: string
 };
 
 const pageSystem = (snap: StatusSnapshot): string => {
-  const { context, settings, logs, health } = snap;
+  const { context, settings, logs } = snap;
 
   const sums = (Object.keys(GROUP_COLORS) as ContextGroup[])
     .map((key) => ({
@@ -1028,7 +1039,7 @@ const pageSystem = (snap: StatusSnapshot): string => {
           ['file', `${pathLink(logs.path)} <span class="dim">(${esc(humanBytes(logs.bytes))})</span>`],
           [
             'today',
-            `<span class="${logs.warnings > 0 ? 'warn' : 'dim'}">${logs.warnings} warn</span> · <span class="${logs.errors > 0 ? 'bad' : 'dim'}"${health.logErrors > 0 ? ' data-issue' : ''}>${logs.errors} err</span>`
+            `<span class="${logs.warnings > 0 ? 'warn' : 'dim'}">${logs.warnings} warn</span> · <span class="${logs.errors > 0 ? 'bad' : 'dim'}">${logs.errors} err</span>`
           ],
           ...(logs.lastError ? [['last err', `<span class="dim">${esc(logs.lastError)}</span>`]] : []),
           ['all-time', `<span class="dim">${logs.totalWarnings} warn · ${logs.totalErrors} err</span>`]
@@ -1054,6 +1065,91 @@ const pageSystem = (snap: StatusSnapshot): string => {
   );
 };
 
+// ── status page ───────────────────────────────────────────────────────
+
+/** In-page link that routes like a sidebar item — `page` or `page/subtab`. */
+const navLink = (target: string, text: string): string =>
+  `<span class="navlink" data-nav="${esc(target)}">${esc(text)} →</span>`;
+
+const clearRow = (text: string): string =>
+  `<div class="row"><span class="good" style="flex:none">✓</span><span class="grow dim">${esc(text)}</span></div>`;
+
+/** The page behind the sidebar badge: every health signal, how it's derived,
+ *  its current value, and where to act on it. */
+const pageStatus = (snap: StatusSnapshot): string => {
+  const { health, tasks, compile, logs, context } = snap;
+  const plugin = snap.runtime.pluginName;
+  const missing = context.staticImports.filter((item) => !item.present);
+
+  const stats = statStrip([
+    stat(health.overdue, 'overdue tasks', health.overdue ? 'bad' : 'good'),
+    stat(health.pendingCompiles, 'pending compiles', health.pendingCompiles ? 'warn' : 'good'),
+    stat(health.logErrors, 'log errors today', health.logErrors ? 'bad' : 'good'),
+    stat(health.missingImports, 'missing imports', health.missingImports ? 'bad' : 'good'),
+    stat(tasks.stale, 'stale · info only')
+  ]);
+
+  const overdueBody =
+    hint('Open tasks whose due date has passed — read straight from each task file’s frontmatter.') +
+    (tasks.overdueList.length
+      ? tasks.overdueList.map((ref) => taskRow(ref, snap)).join('')
+      : clearRow('Nothing past due.'));
+
+  const pendingBody =
+    hint(
+      `Captured session days not yet absorbed into long-term memory — ${compile.sessionFiles} day-file(s) captured vs ${compile.ingested} compiled. Clear it with /${plugin}:sync or /${plugin}:knowledge-compile.`
+    ) +
+    (compile.pending
+      ? `<div class="row"><span class="warn" style="flex:none">●</span><span class="grow">${compile.pending} session day(s) waiting</span>${navLink('brain/pipeline', 'see the pipeline')}</div>`
+      : clearRow('Everything captured has been compiled.'));
+
+  const logsBody =
+    hint('ERROR-level lines the MCP server and hooks wrote to app.log today. Warnings don’t count.') +
+    (logs.errors
+      ? `<div class="row"><span class="bad" style="flex:none">●</span><span class="grow">${logs.errors} error(s) today${
+          logs.lastError ? ` — last: <span class="dim">${esc(logs.lastError)}</span>` : ''
+        }</span>${navLink('system/logs', 'open the log tail')}</div>`
+      : `<div class="row"><span class="good" style="flex:none">✓</span><span class="grow dim">No errors logged today.</span>${navLink('system/logs', 'open the log tail')}</div>`);
+
+  const importsBody =
+    hint(
+      'Files the CLAUDE.md @-import chain loads at session start — a missing one means a session boots without that context.'
+    ) +
+    (missing.length
+      ? missing
+          .map(
+            (item) =>
+              `<div class="row"><span class="bad" style="flex:none">✗</span><span class="grow">${esc(item.label)}</span>${navLink('system/context', 'see context table')}</div>`
+          )
+          .join('')
+      : clearRow('All static imports present.'));
+
+  const staleBody =
+    hint('Tasks not closed and untouched for 7+ days. Informational only — it never turns the badge amber.') +
+    (tasks.stale
+      ? `<div class="row"><span class="dim" style="flex:none">●</span><span class="grow">${tasks.stale} task(s) going stale</span>${navLink('tasks/attention', 'review them')}</div>`
+      : clearRow('Nothing rotting.'));
+
+  const issueCount = [health.overdue, health.pendingCompiles, health.logErrors, health.missingImports].filter(
+    Boolean
+  ).length;
+  return page(
+    'status',
+    `Status <span class="accent">${health.ok ? '🟢' : '🟠'}</span>`,
+    health.ok
+      ? 'All systems nominal. The sidebar badge is green only when the four blocking signals below are all zero.'
+      : `${issueCount} signal(s) need attention. The sidebar badge is green only when the four blocking signals below are all zero.`,
+    stats +
+      [
+        section('Overdue tasks', String(health.overdue), overdueBody),
+        section('Pending compiles', String(health.pendingCompiles), pendingBody),
+        section('Log errors', String(health.logErrors), logsBody),
+        section('Context imports', missing.length ? `${missing.length} missing` : 'all present', importsBody),
+        section('Going stale', `${tasks.stale} · informational`, staleBody)
+      ].join('')
+  );
+};
+
 // ── shell assembly ────────────────────────────────────────────────────
 
 // The generated timestamp lives in the footer, and the operator card carries
@@ -1073,19 +1169,20 @@ const sidebarNav = (snap: StatusSnapshot): string =>
     })
     .join('\n');
 
-/** Only rendered when something needs attention — a green "all nominal"
- *  badge earns no pixels. */
+/** Sidebar health badge — green "all nominal" or amber with the issue list.
+ *  Both states open the Status page, which explains every signal. */
 const healthBadge = (snap: StatusSnapshot): string => {
   const { health } = snap;
-  if (health.ok) return '';
+  if (health.ok) {
+    return `<span class="badge ok" data-nav="status" title="every health signal is clear — click for details"><span class="pulse"></span>all nominal</span>`;
+  }
   const issues = [
     health.overdue && `${health.overdue} overdue`,
     health.pendingCompiles && `${health.pendingCompiles} pending`,
     health.logErrors && `${health.logErrors} errors`,
-    health.missingImports && `${health.missingImports} missing`,
-    health.stale && `${health.stale} stale`
+    health.missingImports && `${health.missingImports} missing`
   ].filter(Boolean);
-  return `<span class="badge warn" title="jump to first issue"><span class="pulse"></span>${esc(issues.join(' · '))}</span>`;
+  return `<span class="badge warn" data-nav="status" title="click for signal details"><span class="pulse"></span>${esc(issues.join(' · '))}</span>`;
 };
 
 const sidebarFoot = (snap: StatusSnapshot): string => {
@@ -1110,7 +1207,8 @@ const PAGE_BUILDERS: Record<(typeof PAGES)[number]['id'], (snap: StatusSnapshot)
   capabilities: pageCapabilities,
   profile: pageProfile,
   persona: pagePersona,
-  system: pageSystem
+  system: pageSystem,
+  status: pageStatus
 };
 
 export const renderDashboardHtml = (snap: StatusSnapshot): string => {

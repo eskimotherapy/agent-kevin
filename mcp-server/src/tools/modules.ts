@@ -1,0 +1,23 @@
+/**
+ * Single source of truth for the tool modules under tools/ that export a
+ * `tools: ToolDef[]` array. server.ts registers from this list; the status
+ * collector lists capabilities from it — adding a module here wires both.
+ * (google-auth.ts is absent on purpose: it only exports OAuth helpers; the
+ * `google_auth` tool itself lives in google-search-console.ts.)
+ */
+export const TOOL_MODULES = [
+  'browser-flows',
+  'capture',
+  'compile',
+  'google-page-speed',
+  'google-search-console',
+  'knowledge',
+  'open-page-rank',
+  'perplexity',
+  'ping',
+  'playwright',
+  'reports',
+  'serpapi',
+  'status',
+  'tasks'
+] as const;

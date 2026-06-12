@@ -77,10 +77,10 @@ aside nav { flex: 1; overflow-y: auto; padding: 10px; }
   display: inline-flex; align-items: center; gap: 8px; justify-content: center;
   border: 1px solid var(--border); border-radius: 999px;
   padding: 5px 12px; font-size: 11px; letter-spacing: 0.04em;
-  background: var(--panel); cursor: default; white-space: nowrap;
+  background: var(--panel); cursor: pointer; white-space: nowrap;
 }
 .badge.ok { color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
-.badge.warn { color: var(--amber); border-color: rgba(210, 153, 34, 0.5); cursor: pointer; }
+.badge.warn { color: var(--amber); border-color: rgba(210, 153, 34, 0.5); }
 .badge .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
@@ -132,7 +132,9 @@ a.chip:hover { color: var(--cyan); text-decoration: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .nowrap { white-space: nowrap; }
 td .nowrap a, td a { white-space: nowrap; }
-[data-issue] { scroll-margin-top: 30px; }
+/* In-page routing links (status page → the surface a signal lives on). */
+.navlink { color: var(--cyan); cursor: pointer; white-space: nowrap; flex: none; font-size: 12px; }
+.navlink:hover { text-decoration: underline; }
 
 /* ── sub-tabs ──────────────────────────────────────────────────────── */
 .subtabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin: 18px 0 6px; overflow-x: auto; }
@@ -304,26 +306,14 @@ footer .sep { margin: 0 8px; opacity: 0.5; }
     });
   });
 
-  // Routing: #page activates a page, #page/subtab also picks its sub-tab.
+  // Routing: "page" activates a page, "page/subtab" also picks its sub-tab.
   const show = (name) => {
     const page = valid.has(name) ? name : first;
     pages.forEach((p) => p.classList.toggle('active', p.dataset.page === page));
     navItems.forEach((a) => a.classList.toggle('active', a.dataset.nav === page));
   };
-  // Click-driven (not <a href="#…">): Obsidian's HTML viewer swallows anchor
-  // navigation, so nav items are plain elements routed by hand. The hash is
-  // still mirrored, best-effort, for browser deep links.
-  const goto = (name) => {
-    show(name);
-    try {
-      history.replaceState(null, '', '#' + name);
-    } catch {}
-  };
-  document.querySelectorAll('[data-nav]').forEach((el) => {
-    el.addEventListener('click', () => goto(el.dataset.nav));
-  });
-  const fromHash = () => {
-    const [name, sub] = location.hash.replace('#', '').split('/');
+  const open = (spec) => {
+    const [name, sub] = (spec || '').split('/');
     show(name);
     if (!sub) return;
     const active = document.querySelector('.page.active');
@@ -331,6 +321,19 @@ footer .sep { margin: 0 8px; opacity: 0.5; }
       if (button.dataset.subtab === sub) button.click();
     });
   };
+  // Click-driven (not <a href="#…">): Obsidian's HTML viewer swallows anchor
+  // navigation, so nav items are plain elements routed by hand. The hash is
+  // still mirrored, best-effort, for browser deep links.
+  const goto = (spec) => {
+    open(spec);
+    try {
+      history.replaceState(null, '', '#' + spec);
+    } catch {}
+  };
+  document.querySelectorAll('[data-nav]').forEach((el) => {
+    el.addEventListener('click', () => goto(el.dataset.nav));
+  });
+  const fromHash = () => open(location.hash.replace('#', ''));
   window.addEventListener('hashchange', fromHash);
   fromHash();
 
@@ -346,17 +349,6 @@ footer .sep { margin: 0 8px; opacity: 0.5; }
     });
   });
 
-  // Health badge → jump to the first flagged issue (switching page first).
-  const badge = document.querySelector('.badge.warn');
-  if (badge) {
-    badge.addEventListener('click', () => {
-      const issue = document.querySelector('[data-issue]');
-      if (!issue) return;
-      const page = issue.closest('.page');
-      if (page) location.hash = page.dataset.page;
-      requestAnimationFrame(() => issue.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-    });
-  }
 })();
 </script>
 </body>

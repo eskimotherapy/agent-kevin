@@ -16,6 +16,7 @@ import { nowTime } from '@/shared/date';
 import type { TaskFile } from '@/shared/types';
 import { discoverProjects, scanAllTasks } from '@/tasks/scan';
 import { resolveTasks } from '@/tasks/resolve';
+import { TOOL_MODULES } from '@/tools/modules';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { relative, resolve } from 'node:path';
@@ -47,12 +48,6 @@ export interface FacetSize {
   bytes: number;
 }
 
-export interface CompileEntry {
-  day: string;
-  cost: number;
-  at: string;
-}
-
 export interface ReportRef {
   /** ISO day the report was filed under in reports/index.md. */
   date: string;
@@ -81,8 +76,13 @@ export interface ToolInfo {
 /** One captured working session from raw/sessions/index.json. */
 export interface SessionRef {
   id: string;
+  /** Day the session started — when it predates lastSeen, the session was
+   *  resumed and its briefing describes that older start. */
   firstSeen: string;
   lastSeen: string;
+  /** HH:MM of the latest captured block (harvested from the last two
+   *  day-files); '' for older sessions. */
+  time: string;
   turns: number;
   cwd: string;
   briefing: string;
@@ -95,8 +95,9 @@ export interface NewsItem {
   /** Briefing day (from the report filename). */
   date: string;
   title: string;
+  /** '' when the briefing carried the headline without a link. */
   url: string;
-  /** `(Source, Mon D)` annotation following the link; '' if absent. */
+  /** `(Source, Mon D)` annotation following the headline; '' if absent. */
   source: string;
 }
 
@@ -175,7 +176,6 @@ export interface ConceptInfo {
 
 export interface Health {
   overdue: number;
-  stale: number;
   pendingCompiles: number;
   logErrors: number;
   missingImports: number;
@@ -185,7 +185,6 @@ export interface Health {
 export type ContextGroup = 'instructions' | 'identity' | 'facets' | 'knowledge' | 'tasks' | 'other';
 
 export interface SessionDay {
-  day: string;
   label: string;
   bytes: number;
 }
@@ -237,11 +236,6 @@ export interface StatusSnapshot {
     pluginName: string;
     home: string;
     pluginRoot: string;
-    knowledgePath: string;
-    projectsPath: string;
-    reportsPath: string;
-    statePath: string;
-    logsPath: string;
     timezone: string;
     date: string;
     /** Today as YYYY-MM-DD in TIMEZONE — anchor for due-date grouping. */
@@ -253,8 +247,8 @@ export interface StatusSnapshot {
   /** URL template for opening markdown files, `{path}` = encoded abs path.
    *  Configurable via the MARKDOWN_URL env var (settings.local.json `env`). */
   markdownUrl: string;
-  skills: { count: number; names: string[]; custom: number; details: SkillInfo[] };
-  mcp: { servers: string[]; toolCount: number; tools: string[]; toolDetails: ToolInfo[] };
+  skills: { count: number; details: SkillInfo[] };
+  mcp: { toolCount: number; toolDetails: ToolInfo[] };
   /** Goals blocks from projects/TASKS.md (lines, markdown stripped). */
   goals: { weekly: string[]; monthly: string[]; yearly: string[] };
   /** `## Active Threads` bullets from memory/index.md, markdown stripped. */
@@ -275,13 +269,11 @@ export interface StatusSnapshot {
   lint: LintReport;
   /** The bin CLI's HELP text, parsed into sections. */
   cli: CliSection[];
-  hooks: { events: string[]; count: number; entries: HookEntry[] };
+  hooks: { count: number; entries: HookEntry[] };
   knowledge: {
     concepts: number;
-    conceptNames: string[];
     /** Concepts joined with their one-line descriptions from knowledge/index.md. */
     conceptDetails: ConceptInfo[];
-    userFacets: number;
     facets: FacetSize[];
     memoryDaily: number;
     memoryIndexBytes: number;
@@ -298,15 +290,12 @@ export interface StatusSnapshot {
     pending: number;
     lastCompiled: string | null;
     totalCostUsd: number;
-    recent: CompileEntry[];
   };
   tasks: {
     active: number;
     blocked: number;
-    open: number;
     stale: number;
     overdue: number;
-    total: number;
     projects: number;
     byProject: ProjectLoad[];
     overdueList: TaskRef[];
@@ -318,7 +307,6 @@ export interface StatusSnapshot {
     touchedToday: TaskRef[];
   };
   context: {
-    source: string;
     staticImports: StaticImport[];
     staticBytes: number;
     dynamic: { date: string; entries: ManifestEntry[]; bytes: number };
@@ -334,7 +322,6 @@ export interface StatusSnapshot {
   logs: {
     path: string;
     bytes: number;
-    mtime: string | null;
     warnings: number;
     errors: number;
     totalWarnings: number;
@@ -434,54 +421,22 @@ const collectSkills = (): StatusSnapshot['skills'] => {
   const plugin = skillInfos(resolve(FOLDERS.ROOT, 'skills'), false);
   const customs = skillInfos(resolve(FOLDERS.HOME, '.claude', 'skills'), true);
   const details = [...plugin, ...customs];
-  return {
-    count: details.length,
-    names: plugin.map((skill) => skill.name),
-    custom: customs.length,
-    details
-  };
+  return { count: details.length, details };
 };
 
 const collectMcp = async (): Promise<StatusSnapshot['mcp']> => {
-  const servers = new Set<string>();
-  for (const path of [resolve(FOLDERS.ROOT, '.mcp.json'), resolve(FOLDERS.HOME, '.mcp.json')]) {
-    const parsed = readJson<{ mcpServers?: Record<string, unknown> }>(path);
-    Object.keys(parsed?.mcpServers ?? {}).forEach((name) => servers.add(name));
-  }
   const toolDetails = await collectMcpTools();
-  return {
-    servers: [...servers],
-    toolCount: toolDetails.length,
-    tools: toolDetails.map((tool) => tool.name),
-    toolDetails
-  };
+  return { toolCount: toolDetails.length, toolDetails };
 };
 
 /**
- * Authoritative tool list: gather the side-effect-free `tools` arrays exactly
- * as server.ts aggregates them. server.ts itself can't be imported (its
- * top-level `server.connect()` would start a server), so the module list is
- * mirrored here — keep in sync with server.ts's TOOLS assembly.
+ * Authoritative tool list: gather the side-effect-free `tools` arrays from
+ * the same TOOL_MODULES list server.ts registers from. server.ts itself can't
+ * be imported (its top-level `server.connect()` would start a server).
  */
 const collectMcpTools = async (): Promise<ToolInfo[]> => {
-  const modules = [
-    'browser-flows',
-    'capture',
-    'compile',
-    'google-page-speed',
-    'google-search-console',
-    'knowledge',
-    'open-page-rank',
-    'perplexity',
-    'ping',
-    'playwright',
-    'reports',
-    'serpapi',
-    'status',
-    'tasks'
-  ];
   const lists = await Promise.all(
-    modules.map(async (name) => {
+    TOOL_MODULES.map(async (name) => {
       try {
         const mod = (await import(`@/tools/${name}`)) as {
           tools?: Array<{ name?: string; description?: string }>;
@@ -511,12 +466,11 @@ const summarizeHookCommand = (command: string): string => {
 const collectHooks = (): StatusSnapshot['hooks'] => {
   const parsed = readJson<{ hooks?: Record<string, HookConfig[]> }>(resolve(FOLDERS.ROOT, 'hooks', 'hooks.json'));
   const hookMap = parsed?.hooks ?? {};
-  const events = Object.keys(hookMap);
-  const entries: HookEntry[] = events.map((event) => {
+  const entries: HookEntry[] = Object.keys(hookMap).map((event) => {
     const command = hookMap[event]?.[0]?.hooks?.[0]?.command ?? '';
     return { event, command: command ? summarizeHookCommand(command) : '—' };
   });
-  return { events, count: events.length, entries };
+  return { count: entries.length, entries };
 };
 
 const listMarkdown = (dir: string, exclude: (name: string) => boolean = () => false): string[] => {
@@ -591,11 +545,7 @@ const collectSessionsWeek = (): SessionDay[] => {
       timeZone: TIMEZONE,
       weekday: 'short'
     });
-    return {
-      day: iso,
-      label,
-      bytes: safeBytes(resolve(FOLDERS.SESSIONS, `${iso}.md`))
-    };
+    return { label, bytes: safeBytes(resolve(FOLDERS.SESSIONS, `${iso}.md`)) };
   });
 };
 
@@ -610,13 +560,11 @@ const collectKnowledge = (): StatusSnapshot['knowledge'] => {
   const conceptDescriptions = wikiIndexDescriptions('concepts');
   return {
     concepts: conceptNames.length,
-    conceptNames,
     conceptDetails: conceptNames.map((name) => ({
       name,
       description: conceptDescriptions.get(name) ?? '',
       href: `knowledge/concepts/${name}.md`
     })),
-    userFacets: facets.length,
     facets,
     memoryDaily: countDir(FOLDERS.MEMORY, (name) => /^\d{4}-\d{2}-\d{2}.*\.md$/.test(name)),
     memoryIndexBytes: safeBytes(FILES.MEMORY),
@@ -653,22 +601,12 @@ const collectCompile = (): StatusSnapshot['compile'] => {
   const totalCostUsd = entries.reduce((sum, entry) => sum + (entry.cost_usd ?? 0), 0);
   const sessionFiles = countDir(FOLDERS.SESSIONS, (name) => MARKDOWN_RE.test(name));
   const ingested = Object.keys(ingestedMap).length;
-  const recent: CompileEntry[] = Object.entries(ingestedMap)
-    .filter(([, entry]) => Boolean(entry.compiled_at))
-    .sort(([, a], [, b]) => (b.compiled_at ?? '').localeCompare(a.compiled_at ?? ''))
-    .slice(0, 7)
-    .map(([file, entry]) => ({
-      day: file.replace(MARKDOWN_RE, ''),
-      cost: entry.cost_usd ?? 0,
-      at: entry.compiled_at ?? ''
-    }));
   return {
     ingested,
     sessionFiles,
     pending: Math.max(0, sessionFiles - ingested),
     lastCompiled,
-    totalCostUsd,
-    recent
+    totalCostUsd
   };
 };
 
@@ -736,10 +674,8 @@ const collectTasks = (): StatusSnapshot['tasks'] => {
   return {
     active: byStatus('active'),
     blocked: byStatus('blocked'),
-    open: byStatus('open'),
     stale: scan.stale.length,
     overdue: scan.overdue.length,
-    total: all.length,
     projects: discoverProjects().length,
     byProject,
     overdueList: scan.overdue.map(toRef),
@@ -809,7 +745,7 @@ const collectContext = async (): Promise<StatusSnapshot['context']> => {
     bytes: 0
   }));
 
-  return { source, staticImports, staticBytes, dynamic };
+  return { staticImports, staticBytes, dynamic };
 };
 
 const collectSettings = (): StatusSnapshot['settings'] => {
@@ -895,7 +831,6 @@ const LOG_TAIL_BYTES = 24_000;
 const collectLogs = (): StatusSnapshot['logs'] => {
   const path = resolve(FOLDERS.LOGS, 'app.log');
   let bytes = 0;
-  let mtime: string | null = null;
   let warnings = 0;
   let errors = 0;
   let totalWarnings = 0;
@@ -903,13 +838,7 @@ const collectLogs = (): StatusSnapshot['logs'] => {
   let lastError: string | null = null;
   let tail = '';
   try {
-    const stat = statSync(path);
-    bytes = stat.size;
-    mtime = stat.mtime.toLocaleTimeString('en-GB', {
-      timeZone: TIMEZONE,
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    bytes = statSync(path).size;
     const today = new Date().toISOString().slice(0, 10);
     const content = readFileSync(path, 'utf-8');
     for (const line of content.split('\n')) {
@@ -934,7 +863,6 @@ const collectLogs = (): StatusSnapshot['logs'] => {
   return {
     path,
     bytes,
-    mtime,
     warnings,
     errors,
     totalWarnings,
@@ -1081,7 +1009,6 @@ const cleanBriefing = (text: string): string =>
     .replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/Caveat: The messages below.*?(unless the user explicitly asks you to\.|$)/i, ' ')
-    .replace(/^\s*DO NOT respond.*$/i, '')
     .trim();
 
 const MAX_SESSIONS = 60;
@@ -1095,22 +1022,54 @@ interface SessionIndexRecord {
   briefing?: string;
 }
 
+/** Command sessions: render `/name args` from the captured invocation tags
+ *  instead of the stripped tag soup ("agent-kevin:sync /agent-kevin:sync"). */
+const commandBriefing = (raw: string): string => {
+  const name = raw.match(/<command-name>([^<]*)</)?.[1]?.trim();
+  const message = raw.match(/<command-message>([^<]*)</)?.[1]?.trim();
+  const command = name || (message ? `/${message}` : '');
+  if (!command) return cleanBriefing(raw);
+  const args = raw.match(/<command-args>([^<]*)</)?.[1]?.trim();
+  return [command, args].filter(Boolean).join(' ');
+};
+
+/** `idShort → HH:MM` of each session's latest captured block, harvested from
+ *  the given day-files (oldest first, so newer blocks win). */
+const BLOCK_TIME_RE = /^### (?:Session|Pre-Compact) \((\d{2}:\d{2})\) \[([0-9a-fA-F]+)\]/gm;
+
+const collectBlockTimes = (days: string[]): Map<string, string> => {
+  const times = new Map<string, string>();
+  for (const day of days) {
+    try {
+      const content = readFileSync(resolve(FOLDERS.SESSIONS, `${day}.md`), 'utf-8');
+      for (const match of content.matchAll(BLOCK_TIME_RE)) {
+        times.set(match[2], match[1]);
+      }
+    } catch {
+      // no transcript captured that day
+    }
+  }
+  return times;
+};
+
 const collectSessions = (): SessionRef[] => {
   const parsed = readJson<{ sessions?: Record<string, SessionIndexRecord> }>(FILES.SESSION_INDEX);
-  const cutoff = new Date(Date.now() - SESSION_WINDOW_DAYS * 86_400_000).toLocaleDateString('sv-SE', {
-    timeZone: TIMEZONE
-  });
+  const dayInTz = (msAgo: number) => new Date(Date.now() - msAgo).toLocaleDateString('sv-SE', { timeZone: TIMEZONE });
+  const cutoff = dayInTz(SESSION_WINDOW_DAYS * 86_400_000);
+  const blockTimes = collectBlockTimes([dayInTz(86_400_000), dayInTz(0)]);
   return Object.entries(parsed?.sessions ?? {})
     .map(([id, record]) => {
       const raw = (record.briefing ?? '').trim();
+      const isCommand = raw.startsWith('<command-') || raw.startsWith('/');
       return {
         id,
         firstSeen: record.first_seen ?? '',
         lastSeen: record.last_seen ?? record.first_seen ?? '',
+        time: blockTimes.get(id) ?? '',
         turns: record.captured_turns ?? 0,
         cwd: record.cwd ?? '',
-        briefing: cleanBriefing(raw),
-        isCommand: raw.startsWith('<command-') || raw.startsWith('/')
+        briefing: isCommand ? commandBriefing(raw) : cleanBriefing(raw),
+        isCommand
       };
     })
     .filter((session) => session.lastSeen >= cutoff)
@@ -1124,9 +1083,14 @@ const NEWS_BRIEFINGS = 15;
 const MAX_NEWS = 30;
 /** `[Title](http://…)` optionally followed by a `(Source, date)` annotation. */
 const NEWS_LINK_RE = /\[([^\]]+)\]\((https?:[^)]+)\)\s*(?:\(([^)]+)\))?/;
+/** Bullet with a bold, link-less headline — `- ☪️ **Headline** (Source, date)`. */
+const NEWS_BOLD_RE = /^\s*[-•*]\s*(?:\S+\s+)?\*\*([^*]+)\*\*\s*(?:\(([^)]+)\))?/;
+/** Trailing parens longer than this are prose, not a `(Source, date)` tag. */
+const MAX_SOURCE = 48;
 
-/** Harvest headline links from the News/Signals sections of the most recent
- *  briefing reports. Deduped by URL, newest briefing first. */
+/** Harvest headlines from the News/Signals sections of the most recent
+ *  briefing reports — markdown-linked ones and bold link-less ones alike.
+ *  Deduped by URL/title, newest briefing first. */
 const collectNews = (): NewsItem[] => {
   const dir = resolve(FOLDERS.REPORTS, 'briefings');
   const files = listMarkdown(dir)
@@ -1145,19 +1109,28 @@ const collectNews = (): NewsItem[] => {
     }
     for (const line of content.split('\n')) {
       if (/📰|🌐/.test(line)) {
+        // The marker line itself may carry an inline headline — keep scanning.
         inNews = true;
-        continue;
-      }
-      // Any other section marker ends the news block.
-      if (/^\s*(\*\*)?[👉🍌📋🎯⚙️🔄✅]/u.test(line.trim()) || /^#{1,3} /.test(line)) {
+      } else if (/^\s*(\*\*)?[👉🍌📋🎯⚙️🔄✅⚠️]/u.test(line.trim()) || /^#{1,3} /.test(line)) {
+        // Any other section marker ends the news block.
         inNews = false;
         continue;
       }
       if (!inNews) continue;
-      const match = line.match(NEWS_LINK_RE);
-      if (!match || seen.has(match[2])) continue;
-      seen.add(match[2]);
-      items.push({ date, title: stripMarkdown(match[1]), url: match[2], source: match[3] ?? '' });
+      const linked = line.match(NEWS_LINK_RE);
+      if (linked) {
+        if (seen.has(linked[2])) continue;
+        seen.add(linked[2]);
+        items.push({ date, title: stripMarkdown(linked[1]), url: linked[2], source: linked[3] ?? '' });
+        continue;
+      }
+      const bold = line.match(NEWS_BOLD_RE);
+      if (!bold) continue;
+      const title = stripMarkdown(bold[1]);
+      if (seen.has(title)) continue;
+      seen.add(title);
+      const source = bold[2] && bold[2].length <= MAX_SOURCE ? bold[2] : '';
+      items.push({ date, title, url: '', source });
     }
   }
   return items.slice(0, MAX_NEWS);
@@ -1243,11 +1216,6 @@ const collectRuntime = (): StatusSnapshot['runtime'] => {
     pluginName: manifest?.name ?? 'agent-kevin',
     home: FOLDERS.HOME,
     pluginRoot: FOLDERS.ROOT,
-    knowledgePath: FOLDERS.KNOWLEDGE,
-    projectsPath: FOLDERS.PROJECTS,
-    reportsPath: FOLDERS.REPORTS,
-    statePath: FOLDERS.DATA,
-    logsPath: FOLDERS.LOGS,
     timezone: TIMEZONE,
     date: now.toLocaleDateString('en-GB', {
       timeZone: TIMEZONE,
@@ -1293,10 +1261,17 @@ const collectReports = (): ReportRef[] => {
 
 const TASKS_DASHBOARD = resolve(FOLDERS.PROJECTS, 'TASKS.md');
 
+/** Goal lines under a TASKS.md heading. The scaffold's italic `_No … yet_`
+ *  placeholders are dropped so unset goals render the dashboard's own hint. */
+const goalLines = (heading: string): string[] =>
+  sectionLines(TASKS_DASHBOARD, heading)
+    .filter((line) => !/^_No .+_$/.test(line))
+    .map(stripMarkdown);
+
 const collectGoals = (): StatusSnapshot['goals'] => ({
-  weekly: sectionLines(TASKS_DASHBOARD, 'Weekly Goals').map(stripMarkdown),
-  monthly: sectionLines(TASKS_DASHBOARD, 'Monthly Goals').map(stripMarkdown),
-  yearly: sectionLines(TASKS_DASHBOARD, 'Yearly Goals').map(stripMarkdown)
+  weekly: goalLines('Weekly Goals'),
+  monthly: goalLines('Monthly Goals'),
+  yearly: goalLines('Yearly Goals')
 });
 
 const MAX_THREADS = 12;
@@ -1335,7 +1310,6 @@ const computeHealth = (snap: Omit<StatusSnapshot, 'health'>): Health => {
   const missingImports = snap.context.staticImports.filter((item) => !item.present).length;
   return {
     overdue,
-    stale: snap.tasks.stale,
     pendingCompiles,
     logErrors,
     missingImports,
