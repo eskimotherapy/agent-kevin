@@ -36,6 +36,29 @@ This isn't a chat wrapper. It's an **operating system for personal AI**:
 
 ## ⚡ Quick start
 
+<details>
+<summary><b>📦 Prerequisites</b> — what to install first</summary>
+
+<br>
+
+Kevin runs on a small, **bun-first** toolchain (no Node.js). Install these once:
+
+| Tool | Why you need it | Get it |
+|------|-----------------|--------|
+| **Claude Code** | The host Kevin plugs into | [docs.claude.com](https://docs.claude.com/en/docs/claude-code/setup) |
+| **Bun** ≥ 1.1 | Runtime for the MCP server, hooks, and the `kevin` CLI | [bun.sh](https://bun.sh) |
+| **Git** | Cloning, the plugin marketplace, and Kevin's git-activity awareness | [git-scm.com](https://git-scm.com) |
+| **Obsidian** *(optional)* | Browse the knowledge graph; opens dashboard links rendered, not raw | [obsidian.md](https://obsidian.md) |
+
+Chromium (for the Playwright tools) is **not** a manual step — `bun install` downloads it into the plugin via a postinstall hook.
+
+**On Windows?** The toolchain assumes a POSIX shell. Pick one:
+
+- **WSL2** *(recommended)* — a full Linux environment where everything runs unchanged. [Install guide](https://learn.microsoft.com/windows/wsl/install)
+- **Git Bash** *(experimental)* — native Windows plus the bash + coreutils that ship with [Git for Windows](https://git-scm.com/download/win). Native support is still being hardened (see [Platform support](#platform-support)).
+
+</details>
+
 ### Option A: Install via `/plugin` (recommended once published)
 
 First, `cd` to wherever you want Kevin's brain to live and launch Claude Code:

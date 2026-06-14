@@ -23,6 +23,7 @@ import { marked } from 'marked';
 import { existsSync, mkdirSync, rmdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { z } from 'zod';
 
 const CAPTURES_DIR = resolve(FOLDERS.REPORTS, 'captures');
@@ -108,11 +109,10 @@ interface NormalizedInput {
 function normalizeInput(input: string): NormalizedInput {
   if (/^https?:\/\//.test(input)) return { url: input, isFile: false, filePath: null };
   if (input.startsWith('file://')) {
-    const filePath = input.replace(/^file:\/\//, '');
-    return { url: input, isFile: true, filePath };
+    return { url: input, isFile: true, filePath: fileURLToPath(input) };
   }
   const filePath = isAbsolute(input) ? input : resolve(process.cwd(), input);
-  return { url: `file://${filePath}`, isFile: true, filePath };
+  return { url: pathToFileURL(filePath).href, isFile: true, filePath };
 }
 
 const MARKDOWN_CSS = `

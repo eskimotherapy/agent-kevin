@@ -21,7 +21,7 @@
 
 import { FILES, FOLDERS } from '@/config';
 import { readFile, writeFile } from 'fs/promises';
-import { dirname, relative, resolve } from 'path';
+import { basename, dirname, relative, resolve, sep } from 'path';
 import { listWikiArticles, splitFrontmatter } from './utils';
 
 export interface LinkInfo {
@@ -61,7 +61,7 @@ function urlToWikiKey(url: string, fromDir: string): { key: string; anchor: stri
   if (/^[a-z]+:\/\//i.test(pathPart)) return null; // external URL
   if (!pathPart.endsWith('.md')) return null; // not a markdown file
   const abs = resolve(fromDir, pathPart);
-  const rel = relative(FOLDERS.KNOWLEDGE, abs);
+  const rel = relative(FOLDERS.KNOWLEDGE, abs).split(sep).join('/');
   if (rel.startsWith('..') || rel.startsWith('/')) return null; // outside wiki
   return { key: rel.replace(/\.md$/, ''), anchor };
 }
@@ -134,8 +134,8 @@ export async function loadLinkTargets(): Promise<WikilinkMap> {
   const map: WikilinkMap = new Map();
   const articlePaths = await listWikiArticles();
   for (const articlePath of articlePaths) {
-    const rel = relative(FOLDERS.KNOWLEDGE, articlePath).replace(/\.md$/, '');
-    const fallback = rel.split('/').pop() ?? rel;
+    const rel = relative(FOLDERS.KNOWLEDGE, articlePath).replace(/\.md$/, '').split(sep).join('/');
+    const fallback = basename(articlePath, '.md');
     const info = await readLinkInfo(articlePath, fallback);
     if (info) map.set(rel, info);
   }

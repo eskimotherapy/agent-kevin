@@ -9,7 +9,7 @@
 import { FOLDERS } from '@/config';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { z } from 'zod';
 
 const FLOWS_DIR = resolve(FOLDERS.ROOT, 'skills', 'browser-flows', 'flows');
@@ -57,7 +57,8 @@ export const tools: ToolDef[] = [
         throw new Error(`Invalid flow name "${flow}". Use lowercase letters, digits, and hyphens.`);
       }
       const scriptPath = resolve(FLOWS_DIR, flow, 'index.ts');
-      if (!scriptPath.startsWith(`${FLOWS_DIR}/`) || !existsSync(scriptPath)) {
+      const rel = relative(FLOWS_DIR, scriptPath);
+      if (rel.startsWith('..') || isAbsolute(rel) || !existsSync(scriptPath)) {
         return { error: `Flow "${flow}" not found. Available: ${listFlows().join(', ') || '(none)'}` };
       }
 
@@ -72,7 +73,12 @@ export const tools: ToolDef[] = [
       const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
       const exitCode = await proc.exited;
 
-      return { flow, exitCode, guidance: readGuidance(flow), output: tail(`${stdout}${stderr}`.trim(), MAX_OUTPUT_CHARS) };
+      return {
+        flow,
+        exitCode,
+        guidance: readGuidance(flow),
+        output: tail(`${stdout}${stderr}`.trim(), MAX_OUTPUT_CHARS)
+      };
     }
   })
 ];

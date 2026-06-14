@@ -10,7 +10,7 @@ import { FOLDERS } from '@/config';
 import type { TaskFile, TaskFrontmatter } from '@/shared/types';
 import { daysAgoDate, todayDate } from '@/shared/date';
 import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { scanAllTasks } from './scan';
 
 // ── Section building ──────────────────────────────────────────────────
@@ -69,8 +69,7 @@ export const buildSections = (tasks: TaskFile[]): DashboardSections => {
 
 // ── Formatting ────────────────────────────────────────────────────────
 
-const fileSlug = (filePath: string, fallback: string): string =>
-  filePath.split('/').pop()?.replace(/\.md$/, '') ?? fallback;
+const fileSlug = (filePath: string, fallback: string): string => basename(filePath, '.md') || fallback;
 
 const taskLink = (t: TaskFile): string => `[[${fileSlug(t.filePath, t.frontmatter.id)}|${t.frontmatter.id}]]`;
 

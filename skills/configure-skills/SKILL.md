@@ -2,7 +2,7 @@
 name: configure-skills
 description: Configure Kevin's optional skill packs (SEO + Browser) or author a brand-new custom skill. The pack skills ship with the plugin and auto-load — this skill just wires up API keys, MCP server registrations, and tool permissions. Custom-authored skills land in `<HOME>/.claude/skills/<name>/`. Invoked at the end of /agent-kevin:init or any time after.
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, AskUserQuestion, Bash(mkdir *), Bash(cat *), Bash(ls *), Bash(rm *), Bash(rmdir *), Bash(npx skills *), Bash(test *), Bash(head *)
+allowed-tools: Read, Write, Edit, AskUserQuestion, Bash(mkdir *), Bash(cat *), Bash(ls *), Bash(rm *), Bash(rmdir *), Bash(bunx skills *), Bash(test *), Bash(head *)
 ---
 
 # Configure Skills
@@ -210,7 +210,7 @@ The install command is:
 
 ```bash
 cd "$HOME_DIR"
-npx skills add <owner/repo> -a claude-code -y
+bunx skills add <owner/repo> -a claude-code -y
 ```
 
 What that does:
@@ -236,10 +236,10 @@ If nothing ticked, return to Step 1.
 For each ticked library:
 
 ```bash
-cd "$HOME_DIR" && npx skills add <owner/repo> -a claude-code -y
+cd "$HOME_DIR" && bunx skills add <owner/repo> -a claude-code -y
 ```
 
-Capture the CLI's output. On success it lists the skills it installed and the destination paths. On failure (network, npm cache permission, missing repo) — surface the error to the user, suggest manual `npx skills list <owner/repo>` to verify the repo + permissions, and move on to the next ticked library.
+Capture the CLI's output. On success it lists the skills it installed and the destination paths. On failure (network, cache permission, missing repo) — surface the error to the user, suggest manual `bunx skills list <owner/repo>` to verify the repo + permissions, and move on to the next ticked library.
 
 ### F.3 Show what landed
 
@@ -266,17 +266,17 @@ done
 
 ### F.4 Update / uninstall semantics
 
-- **Update an installed library**: re-run `npx skills add <owner/repo> -a claude-code -y` from `$HOME_DIR`. skills.sh pulls latest upstream into its cache; the symlink in `<HOME>/.claude/skills/` keeps pointing at the same path, so the freshness shows immediately.
-- **Uninstall a library**: `npx skills remove <owner/repo> -a claude-code` (if supported), or fall back to deleting the symlinks: `rm "$HOME_DIR/.claude/skills/<skill-name>"`. The skills.sh cache stays; that's fine — it's reusable.
-- **List installed**: `npx skills list` from `$HOME_DIR`.
+- **Update an installed library**: re-run `bunx skills add <owner/repo> -a claude-code -y` from `$HOME_DIR`. skills.sh pulls latest upstream into its cache; the symlink in `<HOME>/.claude/skills/` keeps pointing at the same path, so the freshness shows immediately.
+- **Uninstall a library**: `bunx skills remove <owner/repo> -a claude-code` (if supported), or fall back to deleting the symlinks: `rm "$HOME_DIR/.claude/skills/<skill-name>"`. The skills.sh cache stays; that's fine — it's reusable.
+- **List installed**: `bunx skills list` from `$HOME_DIR`.
 
 ### F.5 Trust model
 
-> By installing a third-party library you're accepting that its skill bodies execute in your session with your `permissions.allow` grants. skills.sh maintains a leaderboard and metadata but does not vet skill behavior. Treat each `npx skills add` like a package install — read the LICENSE, scan the SKILL.md files, prefer libraries that pin versions / have active maintenance.
+> By installing a third-party library you're accepting that its skill bodies execute in your session with your `permissions.allow` grants. skills.sh maintains a leaderboard and metadata but does not vet skill behavior. Treat each `bunx skills add` like a package install — read the LICENSE, scan the SKILL.md files, prefer libraries that pin versions / have active maintenance.
 
 ### F.6 Summary
 
-Print per library: install status + symlink path + upstream LICENSE first-line. Remind the user the symlink means upstream changes flow through on next `npx skills add` of the same repo (or whenever skills.sh's CLI runs its update cycle).
+Print per library: install status + symlink path + upstream LICENSE first-line. Remind the user the symlink means upstream changes flow through on next `bunx skills add` of the same repo (or whenever skills.sh's CLI runs its update cycle).
 
 ---
 

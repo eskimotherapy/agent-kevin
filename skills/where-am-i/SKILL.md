@@ -1,6 +1,6 @@
 ---
 name: where-am-i
-description: Show the Claude Code sessions from the last 12 hours scoped to the folder Kevin runs from (the HOME and everything beneath it), with a substantive summary of what each was about, where it left off, and the resume command. Use whenever the operator asks "where am I", "what sessions are running", "what was I working on", "which sessions are open", "I'm lost / overwhelmed", "what did I leave off on", or wants to find/resume a recent session. Also useful at the start of a day or after a break to re-orient. Accepts an optional hours window (e.g. "/agent-kevin:where-am-i 24") and "all" to include every project on the machine.
+description: Show the Claude Code sessions from the last 24 hours scoped to the folder Kevin runs from (the HOME and everything beneath it), with a substantive summary of what each was about, where it left off, and the resume command. Use whenever the operator asks "where am I", "what sessions are running", "what was I working on", "which sessions are open", "I'm lost / overwhelmed", "what did I leave off on", or wants to find/resume a recent session. Also useful at the start of a day or after a break to re-orient. Accepts an optional hours window (e.g. "/agent-kevin:where-am-i 48") and "all" to include every project on the machine.
 disable-model-invocation: true
 allowed-tools: Bash, Read
 ---
@@ -15,10 +15,10 @@ which thread is which and where it stands.
 ## Step 1 — gather
 
 ```bash
-python3 "$CLAUDE_PLUGIN_ROOT/skills/where-am-i/scripts/list_sessions.py" --hours 12
+bun "$CLAUDE_PLUGIN_ROOT/skills/where-am-i/scripts/list_sessions.ts" --hours 24
 ```
 
-- Default window is 12 hours; if the user gave a number (e.g. `/agent-kevin:where-am-i 24`),
+- Default window is 24 hours; if the user gave a number (e.g. `/agent-kevin:where-am-i 48`),
   pass it as `--hours`.
 - **Scope:** by default only sessions launched in the current folder or beneath it are
   included (running from Kevin's HOME picks up the HOME and any sub-project under it —
@@ -67,7 +67,7 @@ test-drive the new flow.
 ...same card shape...
 
 ---
-*6 sessions · 12h window · scoped to ~/Documents/Agents/Kevin*
+*6 sessions · 24h window · scoped to ~/Documents/Agents/Kevin*
 ```
 
 Formatting rules:

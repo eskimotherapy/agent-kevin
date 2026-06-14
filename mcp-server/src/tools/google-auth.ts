@@ -66,9 +66,14 @@ export function authorizedClient(): Auth.OAuth2Client {
 }
 
 function openInBrowser(url: string): void {
-  const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
-    spawn(opener, [url], { detached: true, stdio: 'ignore' }).unref();
+    const child =
+      process.platform === 'darwin'
+        ? spawn('open', [url], { detached: true, stdio: 'ignore' })
+        : process.platform === 'win32'
+          ? spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' })
+          : spawn('xdg-open', [url], { detached: true, stdio: 'ignore' });
+    child.unref();
   } catch {
     // user can copy from the log
   }
