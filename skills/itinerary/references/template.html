@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kuala Selangor &amp; Sekinchan · Family Weekend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..500&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TIMELINE ITINERARY — design tokens (LIGHT MODE ONLY).
+   Card-and-rail layout: a vertical timeline of Morning /
+   Afternoon / Evening / Options periods, each holding cards.
+   Accent hue is the ONLY thing that changes per destination
+   (see DESIGN.md). Everything else stays fixed.
+   ============================================================ */
+:root{
+  --bg:#f4f6f3;--card:#ffffff;--card-2:#fbfcfa;--sunk:#eef2ec;
+  --ink:#1b2620;--ink-soft:#54605a;--ink-faint:#8b978f;
+  --line:#e4e9e2;--line-2:#d3dcd0;
+  --accent:#19646e;--accent-deep:#0e4a52;--accent-wash:#e3f0ef;  /* coastal teal — swap per trip */
+  --gold:#a9742c;--gold-wash:#f7efe1;
+  --morning:#d99a25;--morning-bg:#fcf3e2;
+  --afternoon:#1f8aa6;--afternoon-bg:#e4f3f7;
+  --evening:#5b5bd6;--evening-bg:#ecebfb;
+  --opt:#8a6d3b;--opt-bg:#f6f1e6;
+  --warn-bg:#fdf3e4;--warn-ink:#8a5a18;
+  --fd:"Fraunces",Georgia,serif;--fb:"DM Sans","Helvetica Neue",sans-serif;
+  --sh:0 1px 2px rgba(27,38,32,.04),0 6px 22px rgba(27,38,32,.06);
+  --sh-soft:0 1px 3px rgba(27,38,32,.05);
+  --r:16px;--r-sm:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:78px;-webkit-font-smoothing:antialiased}
+body{font-family:var(--fb);background:var(--bg);color:var(--ink);font-size:1rem;line-height:1.6}
+img{display:block;max-width:100%}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+::selection{background:var(--accent-wash)}
+
+.masthead{position:relative;overflow:hidden;background:linear-gradient(150deg,var(--accent-deep),var(--accent) 65%,#2b8f9c)}
+.masthead::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 85% -10%,rgba(255,255,255,.16),transparent 55%)}
+.mh-in{position:relative;z-index:1;max-width:920px;margin:0 auto;padding:3.4rem 1.5rem 2.4rem;color:#fff}
+.mh-kicker{font-size:.72rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.78);display:flex;align-items:center;gap:.7rem}
+.mh-kicker .dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.6)}
+.masthead h1{font-family:var(--fd);font-weight:500;font-size:clamp(2.1rem,1.5rem + 3vw,3.4rem);line-height:1.05;margin:.9rem 0 .55rem;letter-spacing:-.015em}
+.mh-deck{font-size:clamp(.98rem,.94rem + .3vw,1.12rem);color:rgba(255,255,255,.88);max-width:40em;line-height:1.55}
+.mh-meta{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.6rem}
+.mh-chip{display:flex;flex-direction:column;gap:.1rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:.5rem .85rem}
+.mh-chip b{font-size:.62rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.mh-chip span{font-size:.9rem;font-weight:500;font-variant-numeric:tabular-nums}
+
+.nav{position:sticky;top:0;z-index:60;background:color-mix(in oklab,var(--bg) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav-in{max-width:980px;margin:0 auto;padding:.5rem 1.25rem;display:flex;align-items:center;gap:.35rem;overflow-x:auto}
+.nav a{flex-shrink:0;font-size:.78rem;font-weight:500;color:var(--ink-soft);text-decoration:none;padding:.32rem .8rem;border-radius:999px;white-space:nowrap;transition:all .15s ease}
+.nav a:hover{color:var(--accent);background:var(--accent-wash)}
+.nav a.on{background:var(--accent);color:#fff}
+.nav .sp{flex:1}
+.print-btn{flex-shrink:0;display:inline-flex;align-items:center;gap:.4rem;font-size:.78rem;font-weight:600;color:var(--accent);border:1px solid var(--line-2);padding:.32rem .85rem;border-radius:999px;background:var(--card)}
+.print-btn:hover{border-color:var(--accent);box-shadow:var(--sh-soft)}
+.print-btn svg{width:13px;height:13px}
+
+.wrap{max-width:920px;margin:0 auto;padding:0 1.5rem}
+.overview{max-width:920px;margin:0 auto;padding:2rem 1.5rem 0}
+
+.ribbon{display:flex;align-items:flex-start;overflow-x:auto;padding:1.2rem 1.1rem;background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-soft)}
+.r-stop{display:flex;flex-direction:column;align-items:center;gap:.3rem;min-width:66px;text-align:center}
+.r-dot{width:23px;height:23px;border-radius:50%;background:var(--accent);outline:3px solid var(--accent-wash);display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:700;color:#fff}
+.r-stop.minor .r-dot{background:var(--card);border:2px solid var(--accent);color:var(--accent);outline:none}
+.r-name{font-size:.71rem;font-weight:600;line-height:1.2;max-width:78px}
+.r-sub{font-size:.62rem;color:var(--ink-faint)}
+.r-leg{flex:1;display:flex;flex-direction:column;align-items:center;gap:.12rem;min-width:44px;padding-top:3px}
+.r-leg-line{width:100%;height:0;border-top:2px dotted var(--line-2)}
+.r-leg-lbl{font-size:.6rem;color:var(--ink-faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+.season{display:flex;gap:.7rem;margin-top:1.1rem;padding:.85rem 1.05rem;border-radius:var(--r);background:var(--accent-wash);border:1px solid color-mix(in oklab,var(--accent) 22%,transparent);font-size:.85rem;color:var(--accent-deep)}
+.season svg{flex-shrink:0;width:18px;height:18px;color:var(--accent);margin-top:2px}
+.season b{font-weight:600}
+
+/* flight cards (fly-in flavor; omit for drive-only trips) */
+.flights{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:.85rem;margin-top:1.1rem}
+.flight{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:.95rem 1.1rem;box-shadow:var(--sh-soft)}
+.flight-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.5rem}
+.flight-lbl{font-size:.64rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.flight-no{font-size:.72rem;font-weight:600;color:var(--gold)}
+.flight-rt{display:flex;align-items:center;gap:.7rem}
+.fr-code{font-family:var(--fd);font-size:1.5rem;font-weight:500;line-height:1}
+.fr-t{font-size:.7rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.fr-mid{flex:1;display:flex;flex-direction:column;align-items:center;gap:.5rem}
+.fr-line{width:100%;height:0;border-top:1px solid var(--line-2);position:relative}
+.fr-line::after{content:"✈";position:absolute;top:-.92em;left:50%;transform:translateX(-50%);background:var(--card);padding:0 .3rem;font-size:.66rem;color:var(--gold)}
+.fr-dur{font-size:.6rem;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.flight-ft{margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--line);font-size:.72rem;color:var(--ink-soft);display:flex;justify-content:space-between;gap:.4rem}
+.flight-ft .pr{color:var(--gold);font-weight:600;font-variant-numeric:tabular-nums}
+
+.phase{padding-top:3rem}
+.phase-bar{display:flex;align-items:center;gap:.8rem;padding:.9rem 1.1rem;border-radius:var(--r);background:linear-gradient(100deg,var(--accent-wash),transparent);border:1px solid var(--line)}
+.phase-ico{flex-shrink:0;width:38px;height:38px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff}
+.phase-ico svg{width:19px;height:19px}
+.phase-bar h2{font-family:var(--fd);font-weight:500;font-size:clamp(1.2rem,1.05rem + .6vw,1.5rem);color:var(--accent-deep);line-height:1.1}
+.phase-bar .ph-sub{font-size:.78rem;color:var(--ink-soft);margin-top:.15rem}
+
+.day{padding-top:2rem}
+.day-head{display:flex;align-items:flex-start;gap:1rem;margin-bottom:.4rem}
+.day-num{flex-shrink:0;font-family:var(--fd);font-weight:500;font-size:clamp(2rem,1.6rem + 1.4vw,2.7rem);line-height:.85;color:var(--accent);font-variant-numeric:tabular-nums;text-align:center}
+/* small month label above the day number — change content per trip month */
+.day-num::before{content:"Jun";display:block;font-family:var(--fb);font-size:.6rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);line-height:1;margin-bottom:.2rem}
+.day-hmain{flex:1;min-width:0}
+.day-kicker{font-size:.68rem;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint)}
+.day-title{font-family:var(--fd);font-weight:500;font-size:clamp(1.25rem,1.1rem + .9vw,1.7rem);line-height:1.12;margin-top:.1rem}
+.day-badges{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.5rem}
+.dbadge{font-size:.66rem;font-weight:600;padding:.18rem .6rem;border-radius:999px;background:var(--sunk);color:var(--ink-soft)}
+.dbadge.drive{background:var(--accent-wash);color:var(--accent-deep)}
+/* day summary — EVERY day gets a one-line "what this is" */
+.day-sum{font-size:.9rem;color:var(--ink-soft);margin-top:.7rem;line-height:1.55;max-width:48em}
+
+/* the timeline rail + period markers */
+.tl{position:relative;margin-top:1.1rem;padding-left:2.5rem}
+.tl::before{content:"";position:absolute;left:13px;top:10px;bottom:10px;width:2px;background:linear-gradient(var(--accent),var(--accent-wash))}
+.period{position:relative;margin-bottom:1.3rem}
+.period:last-child{margin-bottom:0}
+.p-mark{position:absolute;left:-2.5rem;top:-2px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;background:var(--card);border:2px solid var(--line-2);z-index:1}
+.p-mark.morning{border-color:var(--morning);background:var(--morning-bg)}
+.p-mark.afternoon{border-color:var(--afternoon);background:var(--afternoon-bg)}
+.p-mark.evening{border-color:var(--evening);background:var(--evening-bg)}
+.p-mark.opt{border-color:var(--opt);background:var(--opt-bg)}
+.p-lbl{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);padding-top:.2rem}
+.p-lbl small{display:block;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-faint);font-size:.7rem;margin-top:.05rem}
+.p-cards{display:flex;flex-direction:column;gap:.6rem;margin-top:.55rem}
+
+/* activity card — tap to expand the detail (class "x" = expandable) */
+.acard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-soft);overflow:hidden;transition:box-shadow .15s ease,border-color .15s ease}
+.acard:hover{box-shadow:var(--sh);border-color:var(--line-2)}
+.acard-main{display:flex;gap:.85rem;padding:.85rem .95rem;align-items:flex-start}
+.acard.x .acard-main{cursor:pointer}
+.acard-emoji{flex-shrink:0;width:50px;height:50px;border-radius:12px;background:var(--sunk);display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+.acard-body{flex:1;min-width:0}
+.acard-name{font-size:.97rem;font-weight:600;line-height:1.3;display:flex;align-items:center;gap:.4rem}
+.acard-name .chev{margin-left:auto;flex-shrink:0;color:var(--ink-faint);transition:transform .18s ease}
+.acard.open .acard-name .chev{transform:rotate(180deg)}
+.acard-name a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line-2)}
+.acard-name a:hover{border-color:var(--accent);color:var(--accent)}
+.acard-desc{font-size:.85rem;color:var(--ink-soft);margin-top:.3rem;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem}
+.chip{font-size:.65rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;background:var(--sunk);color:var(--ink-soft)}
+.chip.halal{background:var(--accent-wash);color:var(--accent-deep)}
+.chip.price{background:var(--gold-wash);color:var(--gold)}
+.chip.book{background:var(--warn-bg);color:var(--warn-ink)}
+.chip.sea{background:var(--afternoon-bg);color:var(--afternoon)}
+.acard-detail{display:none;padding:.2rem .95rem 1rem 1rem}
+.acard.open .acard-detail{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.detail-div{height:1px;background:var(--line);margin-bottom:.8rem}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin-bottom:.7rem}
+.di-l{font-size:.64rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.di-v{font-size:.82rem;font-weight:500;margin-top:.1rem}
+.tip{padding:.55rem .8rem;border-left:3px solid var(--accent);background:var(--accent-wash);border-radius:0 8px 8px 0;font-size:.8rem;color:var(--ink-soft);line-height:1.5}
+.tip+.tip{margin-top:.5rem}
+.tip b{color:var(--accent-deep)}
+.tip.warn{border-left-color:var(--gold);background:var(--warn-bg);color:var(--warn-ink)}
+.tip.warn b{color:var(--warn-ink)}
+
+/* the OPTIONS period: dashed + tinted, so it reads as "extra / backup" */
+.period.options .p-cards .acard{background:var(--opt-bg);border-style:dashed;border-color:color-mix(in oklab,var(--opt) 35%,var(--line))}
+.period.options .acard-emoji{background:#fff}
+
+/* drive connector between cards (road-trip flavor) */
+.drive-leg{display:flex;align-items:center;gap:.6rem;padding:.3rem 0 .3rem .2rem;font-size:.72rem;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.drive-leg::after{content:"";flex:1;border-top:2px dotted var(--line-2)}
+
+.section{padding-top:3rem}
+.sec-head{display:flex;align-items:baseline;gap:.7rem;border-bottom:2px solid var(--ink);padding-bottom:.5rem;margin-bottom:.5rem}
+.sec-head h2{font-family:var(--fd);font-weight:500;font-size:clamp(1.3rem,1.15rem + .8vw,1.7rem)}
+.sec-head h2 em{font-style:italic;color:var(--accent)}
+/* section summary — EVERY section opens with one explanatory line */
+.sec-sum{font-size:.86rem;color:var(--ink-soft);margin-bottom:1.1rem;max-width:50em;line-height:1.55}
+
+.map-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:1rem;box-shadow:var(--sh-soft);overflow-x:auto}
+.map-card svg{min-width:480px;width:100%;height:auto;display:block}
+.map-note{font-size:.74rem;color:var(--ink-faint);font-style:italic;text-align:center;margin-top:.7rem}
+
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem}
+.vcard{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;text-decoration:none;color:inherit;box-shadow:var(--sh-soft);transition:all .15s ease}
+.vcard:hover{box-shadow:var(--sh);transform:translateY(-2px);border-color:var(--line-2)}
+.vthumb{position:relative;aspect-ratio:16/9;background:var(--sunk);overflow:hidden}
+.vthumb img{width:100%;height:100%;object-fit:cover}
+.vthumb.search{display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:var(--ink-faint)}
+.vplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(20,30,25,.28);opacity:0;transition:opacity .15s ease}
+.vcard:hover .vplay{opacity:1}
+.vplay svg{width:34px;height:34px;fill:#fff}
+.vinfo{padding:.7rem .85rem .8rem}
+.vtitle{font-size:.84rem;font-weight:600;line-height:1.35}
+.vmeta{font-size:.7rem;color:var(--ink-faint);margin-top:.2rem}
+
+.tbl{width:100%;border-collapse:collapse;font-size:.82rem;background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tbl th{text-align:left;font-size:.64rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);padding:.6rem .75rem;background:var(--card-2);border-bottom:1px solid var(--line-2)}
+.tbl td{padding:.55rem .75rem;border-bottom:1px solid var(--line);color:var(--ink-soft)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{color:var(--ink);font-weight:500}
+.budget td:last-child,.budget th:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.budget tr.total td{border-top:2px solid var(--ink);font-weight:600;color:var(--ink)}
+.budget .est{font-size:.66rem;color:var(--ink-faint);font-style:italic}
+
+.know{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:.9rem}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:1rem 1.1rem;box-shadow:var(--sh-soft)}
+.kcard h3{font-size:.82rem;font-weight:600;margin-bottom:.4rem}
+.kcard p{font-size:.81rem;color:var(--ink-soft);line-height:1.5}
+
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:.5rem}
+.check{display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);cursor:pointer;user-select:none;transition:all .15s ease}
+.check:hover{border-color:var(--accent)}
+.check .box{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--line-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s ease}
+.check .box svg{width:10px;height:10px;color:#fff;display:none}
+.check.ck{background:var(--accent-wash);border-color:var(--accent)}
+.check.ck .box{background:var(--accent);border-color:var(--accent)}
+.check.ck .box svg{display:block}
+.check.ck span{text-decoration:line-through;color:var(--ink-faint)}
+.check span{font-size:.8rem;font-weight:500}
+
+footer{max-width:920px;margin:2rem auto 0;padding:3rem 1.5rem 2.5rem;text-align:center;border-top:1px solid var(--line);font-size:.74rem;color:var(--ink-faint)}
+footer p+p{margin-top:.3rem}
+
+@media(max-width:560px){
+  .mh-in{padding:2.4rem 1.1rem 1.8rem}
+  .wrap,.overview,.nav-in{padding-left:1.1rem;padding-right:1.1rem}
+  .tl{padding-left:2.1rem}.tl::before{left:11px}.p-mark{left:-2.1rem;width:24px;height:24px}
+  .vgrid{grid-template-columns:1fr}
+}
+
+/* ============================================================
+   PRINT — the print button's promise. White page, no chrome,
+   one day per page, all card detail expanded, videos hidden.
+   Never weaken this block.
+   ============================================================ */
+@media print{
+  :root{--bg:#fff;--card:#fff;--card-2:#fff;--sunk:#f2f2ee;--sh:none;--sh-soft:none}
+  body{font-size:10pt}
+  .nav{display:none}
+  .masthead{background:#fff;color:var(--ink);border-bottom:2px solid var(--ink)}
+  .masthead::after{display:none}
+  .mh-in{color:var(--ink);padding:0 0 1rem}
+  .mh-kicker{color:var(--accent)}.mh-deck{color:var(--ink-soft)}
+  .mh-chip{background:#fff;border-color:#ccc}.mh-chip b{color:var(--ink-faint)}
+  .phase{padding-top:1.4rem}.phase-bar{background:#fff;border-color:#bbb}
+  .day{padding-top:1.2rem;break-inside:avoid-page}
+  .day+.day{break-before:page}
+  .acard{break-inside:avoid;box-shadow:none;border-color:#ccc}
+  .acard.x .acard-detail{display:block!important}  /* expand everything on paper */
+  .acard .chev{display:none}
+  .section{padding-top:1.6rem}
+  .map-card,.kcard,.check,.tbl,.flight,.ribbon,.season{box-shadow:none;border-color:#ccc}
+  #watch{display:none}              /* videos are screen-only */
+  a[href^="http"]::after{content:""}
+}
+@page{margin:13mm 12mm}
+</style>
+</head>
+<body>
+
+<!-- ===================== MASTHEAD ===================== -->
+<header class="masthead">
+  <div class="mh-in">
+    <p class="mh-kicker">Family Trips<span class="dot"></span>West Coast Weekend</p>
+    <h1>Kuala Selangor &amp; Sekinchan</h1>
+    <p class="mh-deck">Fireflies on the river, paddy fields to the horizon, and the best grilled fish on the Selangor coast — an easy weekend from KL with three kids.</p>
+    <div class="mh-meta">
+      <div class="mh-chip"><b>Dates</b><span>Sat 27 – Sun 28 Jun</span></div>
+      <div class="mh-chip"><b>Travellers</b><span>2 adults · 3 kids (6–12)</span></div>
+      <div class="mh-chip"><b>Driving</b><span>~210 km round trip</span></div>
+      <div class="mh-chip"><b>Budget</b><span>~RM 950</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== STICKY NAV ===================== -->
+<nav class="nav" aria-label="Sections">
+  <div class="nav-in">
+    <a class="on" href="#d1">Day 1</a>
+    <a href="#d2">Day 2</a>
+    <a href="#map">Map</a>
+    <a href="#watch">Watch</a>
+    <a href="#budget">Budget</a>
+    <a href="#know">Tips</a>
+    <span class="sp"></span>
+    <button class="print-btn" onclick="window.print()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      Print
+    </button>
+  </div>
+</nav>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section class="overview">
+  <!-- route ribbon: road-trip / multi-city flavor (omit for a single-base trip) -->
+  <div class="ribbon" aria-label="Route overview">
+    <div class="r-stop"><span class="r-dot">⌂</span><span class="r-name">Home (KL)</span><span class="r-sub">depart</span></div>
+    <div class="r-leg"><span class="r-leg-line"></span><span class="r-leg-lbl">🚗 1h15</span></div>
+    <div class="r-stop"><span class="r-dot">1</span><span class="r-name">Kuala Selangor</span><span class="r-sub">1 night</span></div>
+    <div class="r-leg"><span class="r-leg-line"></span><span class="r-leg-lbl">🚗 35m</span></div>
+    <div class="r-stop"><span class="r-dot">2</span><span class="r-name">Sekinchan</span><span class="r-sub">day</span></div>
+    <div class="r-leg"><span class="r-leg-line"></span><span class="r-leg-lbl">🚗 1h45</span></div>
+    <div class="r-stop minor"><span class="r-dot">⌂</span><span class="r-name">Home (KL)</span><span class="r-sub">~20:30</span></div>
+  </div>
+  <div class="season">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    <div><b>Timing the fireflies:</b> best on dry nights around the new moon. Heavy afternoon rain kills the show, so check the radar at Asr and switch to the covered-jetty Plan B early if needed.</div>
+  </div>
+  <!-- For a fly-in trip, the .flights grid from DESIGN.md goes here. Omitted: this is a drive trip. -->
+</section>
+
+<main class="wrap">
+
+<!-- ===================== DAY 1 ===================== -->
+<section class="day" id="d1">
+  <div class="day-head">
+    <span class="day-num">01</span>
+    <div class="day-hmain">
+      <div class="day-kicker">Kuala Selangor · Saturday</div>
+      <h2 class="day-title">Eagles, hills &amp; a river of stars</h2>
+      <div class="day-badges"><span class="dbadge drive">🚗 1 h 50 · ~100 km</span><span class="dbadge">Firefly night</span></div>
+    </div>
+  </div>
+  <p class="day-sum">An easy morning drive out of the city, an afternoon with the silver-leaf monkeys on Bukit Melawati, and the firefly boats on the river after Maghrib.</p>
+  <div class="tl">
+    <div class="period">
+      <div class="p-mark morning">☀️</div><div class="p-lbl">Morning</div>
+      <div class="p-cards">
+        <article class="acard x" onclick="tog(this)">
+          <div class="acard-main"><div class="acard-emoji">🦅</div><div class="acard-body">
+            <div class="acard-name"><a href="https://www.google.com/maps/search/Bukit+Melawati" target="_blank" rel="noopener">Bukit Melawati &amp; the silver-leaf monkeys</a><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            <div class="acard-desc">Lighthouse, old fort walls, and the famously gentle silvered langurs. Take the tram up so little legs are saved for the evening. The long-tailed macaques are the cheeky ones — keep snacks zipped away.</div>
+            <div class="chips"><span class="chip price">~RM 25 family</span><span class="chip">Stroller-OK via tram</span></div>
+          </div></div>
+          <div class="acard-detail"><div class="detail-div"></div>
+            <div class="dgrid"><div><div class="di-l">Tram</div><div class="di-v">RM 5/4 adult/child</div></div><div><div class="di-l">Best time</div><div class="di-v">Before 10am</div></div></div>
+            <div class="tip"><b>Tip:</b> buy a bundle of long beans at the foot of the hill — the langurs eat from your hand and the kids will talk about it for weeks.</div>
+          </div>
+        </article>
+      </div>
+    </div>
+    <div class="period">
+      <div class="p-mark afternoon">🌤️</div><div class="p-lbl">Afternoon</div>
+      <div class="p-cards">
+        <article class="acard"><div class="acard-main"><div class="acard-emoji">🍜</div><div class="acard-body">
+          <div class="acard-name">Lunch &amp; Dhuhr in town, then check in</div>
+          <div class="acard-desc">Restoran Auntie Kopitiam (Muslim-owned) for mee hoon and seafood fried rice, Dhuhr at the masjid two streets over, then check in at De Palma (family rooms, surau on site, kids' pool) and rest before dark.</div>
+          <div class="chips"><span class="chip halal">Muslim-owned ✓</span><span class="chip price">Hotel ~RM 260</span></div>
+        </div></div></article>
+      </div>
+    </div>
+    <div class="period">
+      <div class="p-mark evening">🌙</div><div class="p-lbl">Evening</div>
+      <div class="p-cards">
+        <article class="acard x" onclick="tog(this)">
+          <div class="acard-main"><div class="acard-emoji">✨</div><div class="acard-body">
+            <div class="acard-name"><a href="https://www.google.com/maps/search/Kampung+Kuantan+Firefly" target="_blank" rel="noopener">Kampung Kuantan firefly boats</a><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            <div class="acard-desc">A wooden sampan paddled silently along the berembang trees flickering with synchronized fireflies. Pray Maghrib first; keep voices low and phones dim.</div>
+            <div class="chips"><span class="chip price">RM 60 / boat (4 pax)</span><span class="chip book">Queue after 20:00 weekends</span></div>
+          </div></div>
+          <div class="acard-detail"><div class="detail-div"></div>
+            <div class="tip warn"><b>Plan B:</b> if it rains, the Firefly Park Resort jetty at Bukit Belimbing runs covered boats and refunds on cancellation.</div>
+          </div>
+        </article>
+      </div>
+    </div>
+    <!-- OPTIONS: things that don't fit the day, or backups if a plan falls through -->
+    <div class="period options">
+      <div class="p-mark opt">✦</div><div class="p-lbl">More options<small>extra time, or if a plan falls through</small></div>
+      <div class="p-cards">
+        <article class="acard"><div class="acard-main"><div class="acard-emoji">🌳</div><div class="acard-body">
+          <div class="acard-name">Taman Alam Kuala Selangor (nature park)</div>
+          <div class="acard-desc">Mangrove boardwalks and silvered langurs in the wild — a gentle morning alternative if the hill is crowded.</div>
+        </div></div></article>
+        <article class="acard"><div class="acard-main"><div class="acard-emoji">🦗</div><div class="acard-body">
+          <div class="acard-name">Sky Mirror (tidal sandbar)</div>
+          <div class="acard-desc">A mirror-flat sandbar that appears at low tide for a boat trip — only on the right tide and date, so check before counting on it.</div>
+        </div></div></article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DAY 2 ===================== -->
+<section class="day" id="d2">
+  <div class="day-head">
+    <span class="day-num">02</span>
+    <div class="day-hmain">
+      <div class="day-kicker">Sekinchan · Sunday</div>
+      <h2 class="day-title">Paddy fields &amp; the fishing village</h2>
+      <div class="day-badges"><span class="dbadge drive">🚗 2 h 20 · ~140 km</span></div>
+    </div>
+  </div>
+  <p class="day-sum">North along the coast road to Sekinchan: rice galleries, a wishing tree on the beach, and lunch from the morning's catch, then home before the Sunday traffic.</p>
+  <div class="tl">
+    <div class="period">
+      <div class="p-mark morning">☀️</div><div class="p-lbl">Morning</div>
+      <div class="p-cards">
+        <div class="drive-leg">🚗 35 min · Route 5 coast road, paddy on both sides</div>
+        <article class="acard x" onclick="tog(this)">
+          <div class="acard-main"><div class="acard-emoji">🌾</div><div class="acard-body">
+            <div class="acard-name"><a href="https://www.google.com/maps/search/Paddy+Gallery+Sekinchan" target="_blank" rel="noopener">Paddy Processing Gallery &amp; Pantai Redang</a><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            <div class="acard-desc">How rice gets from field to bag, with a viewing tower over the mill, then the beach with its red-ribbon wishing tree and kites for sale.</div>
+            <div class="chips"><span class="chip price">RM 5 / pax</span><span class="chip book">Gallery closed Mon</span></div>
+          </div></div>
+          <div class="acard-detail"><div class="detail-div"></div>
+            <div class="tip"><b>Photo:</b> if it's planting season the fields are mirror-green; harvest season turns them gold.</div>
+          </div>
+        </article>
+      </div>
+    </div>
+    <div class="period">
+      <div class="p-mark afternoon">🌤️</div><div class="p-lbl">Afternoon</div>
+      <div class="p-cards">
+        <article class="acard"><div class="acard-main"><div class="acard-emoji">🦐</div><div class="acard-body">
+          <div class="acard-name">Seafood lunch, then Dhuhr</div>
+          <div class="acard-desc">Restoran Nelayan Bagan (Muslim-friendly — confirm on arrival) for grilled siakap and butter prawns. Surau at the R&amp;R on the way out of town.</div>
+          <div class="chips"><span class="chip halal">Verify on arrival</span><span class="chip price">~RM 120</span></div>
+        </div></div></article>
+        <div class="drive-leg">🚗 1 h 45 · home via LATAR — depart by 16:30 to beat Sunday traffic</div>
+      </div>
+    </div>
+    <div class="period options">
+      <div class="p-mark opt">✦</div><div class="p-lbl">More options</div>
+      <div class="p-cards">
+        <article class="acard"><div class="acard-main"><div class="acard-emoji">🏛️</div><div class="acard-body">
+          <div class="acard-name">Wet World Air Panas (hot springs)</div>
+          <div class="acard-desc">A kid-friendly hot-spring water park near Bestari Jaya if you want one more swim before the drive home.</div>
+        </div></div></article>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="wrap">
+
+<!-- ===================== ROUTE MAP (multi-city / road-trip flavor) ===================== -->
+<section class="section" id="map">
+  <div class="sec-head"><h2>The <em>route</em></h2></div>
+  <p class="sec-sum">A stylized loop of the weekend — schematic, not to scale. Use Waze for real navigation.</p>
+  <div class="map-card">
+    <svg viewBox="0 0 480 220" role="img" aria-label="Route map">
+      <rect width="480" height="220" rx="10" fill="var(--sunk)"/>
+      <path d="M70,30 C120,20 180,40 200,90 C220,140 200,180 150,195 C110,205 80,180 78,140 C76,100 60,60 70,30 Z" fill="#d6ebe2" stroke="var(--accent)" stroke-width="1.4" opacity=".5"/>
+      <text x="300" y="120" font-family="DM Sans" font-size="11" font-style="italic" fill="var(--ink-faint)">Strait of Malacca</text>
+      <path d="M150,170 C120,150 110,120 120,95" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="6,3"/>
+      <path d="M120,95 C124,75 132,62 148,55" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-dasharray="6,3"/>
+      <circle cx="150" cy="170" r="8" fill="var(--accent-deep)" stroke="#fff" stroke-width="2"/><text x="164" y="174" font-family="DM Sans" font-size="11" font-weight="700" fill="var(--ink)">Home (KL)</text>
+      <circle cx="120" cy="95" r="7" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/><text x="132" y="99" font-family="DM Sans" font-size="10" font-weight="600" fill="var(--ink)">Kuala Selangor</text>
+      <circle cx="148" cy="55" r="7" fill="var(--accent)" stroke="#fff" stroke-width="1.5"/><text x="160" y="59" font-family="DM Sans" font-size="10" font-weight="600" fill="var(--ink)">Sekinchan</text>
+    </svg>
+  </div>
+  <p class="map-note">Positions illustrative · green dashed = drive.</p>
+</section>
+
+<!-- ===================== WATCH (multi-day flavor; hidden in print) =====================
+     Use REAL youtube.com IDs found in this session's research (see DESIGN.md). When none is
+     verified for a spot, use a youtube.com/results search link with the .search thumb (no fake image). -->
+<section class="section" id="watch">
+  <div class="sec-head"><h2>Watch <em>before you go</em></h2></div>
+  <p class="sec-sum">A couple of clips to set the mood and show the kids what's coming.</p>
+  <div class="vgrid">
+    <a class="vcard" href="https://www.youtube.com/results?search_query=kuala+selangor+fireflies+travel" target="_blank" rel="noopener">
+      <div class="vthumb search">▶</div>
+      <div class="vinfo"><div class="vtitle">Kuala Selangor fireflies on YouTube</div><div class="vmeta">Search link · use a verified video when one exists</div></div>
+    </a>
+    <a class="vcard" href="https://www.youtube.com/results?search_query=sekinchan+paddy+fields+guide" target="_blank" rel="noopener">
+      <div class="vthumb search">▶</div>
+      <div class="vinfo"><div class="vtitle">Sekinchan paddy-field guides</div><div class="vmeta">Search link</div></div>
+    </a>
+  </div>
+</section>
+
+<!-- ===================== BUDGET ===================== -->
+<section class="section" id="budget">
+  <div class="sec-head"><h2>The <em>budget</em></h2></div>
+  <p class="sec-sum">A planning estimate for a family of five — reconfirm before booking.</p>
+  <table class="tbl budget">
+    <thead><tr><th>Item</th><th>Notes</th><th>RM</th></tr></thead>
+    <tbody>
+      <tr><td>Hotel (1 night)</td><td>De Palma family room, breakfast included</td><td>260</td></tr>
+      <tr><td>Fuel + tolls</td><td>~210 km round trip</td><td>90</td></tr>
+      <tr><td>Activities</td><td>Tram, gallery, firefly boat</td><td>120</td></tr>
+      <tr><td>Food</td><td>4 meals out <span class="est">estimate</span></td><td>330</td></tr>
+      <tr><td>Buffer</td><td>Kites, rice, roadside corn</td><td>150</td></tr>
+      <tr class="total"><td>Total</td><td></td><td>~950</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ===================== GOOD TO KNOW ===================== -->
+<section class="section" id="know">
+  <div class="sec-head"><h2>Good to <em>know</em></h2></div>
+  <p class="sec-sum">The practical layer — halal, prayers, timing, and what to pack for a riverbank night.</p>
+  <div class="know">
+    <div class="kcard"><h3>🕌 Halal eating</h3><p>Vetted: Auntie Kopitiam (KS town), Nelayan Bagan (Sekinchan, verify on arrival). Many Sekinchan seafood houses are non-halal — ask before ordering anywhere new.</p></div>
+    <div class="kcard"><h3>🧎 Prayer stops</h3><p>Masjid India Muslim in KS town; De Palma has a surau; Sungai Besar R&amp;R surau on the drive home. Pack travel mats.</p></div>
+    <div class="kcard"><h3>🧳 Pack for the river</h3><p>Mosquito repellent (fireflies = riverbank), swimwear for the pool, cash (boats and stalls are cash-only), hats for the paddy walk.</p></div>
+    <div class="kcard"><h3>🩺 Emergencies</h3><p>Hospital Tengku Ampuan Jemaah, Sabak Bernam (15 min from Sekinchan). National emergency: 999.</p></div>
+  </div>
+  <div style="margin-top:1.3rem"><div class="checks">
+    <label class="check"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span>Mosquito repellent</span></label>
+    <label class="check"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span>Swimwear + pool floats</span></label>
+    <label class="check"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span>Travel prayer mats</span></label>
+    <label class="check"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span>Cash float</span></label>
+  </div></div>
+</section>
+
+</div><!-- /wrap -->
+
+<footer>
+  <p>Researched &amp; assembled by Kevin 🍌</p>
+  <p>Prices and hours checked at research time — reconfirm bookings before departure.</p>
+</footer>
+
+<script>
+// scroll-spy nav
+const links=[...document.querySelectorAll('.nav a')];
+const targets=links.map(l=>document.querySelector(l.getAttribute('href')));
+addEventListener('scroll',()=>{let cur=0;targets.forEach((t,i)=>{if(t&&t.getBoundingClientRect().top<140){cur=i}});links.forEach((l,i)=>l.classList.toggle('on',i===cur))},{passive:true});
+// expandable cards
+function tog(card){card.classList.toggle('open')}
+// checklist persists per-document
+const KEY='itinerary:'+document.title;
+const saved=new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));
+document.querySelectorAll('.check').forEach((el,i)=>{
+  if(saved.has(i)){el.classList.add('ck')}
+  el.addEventListener('click',()=>{el.classList.toggle('ck');const set=new Set(JSON.parse(localStorage.getItem(KEY)||'[]'));el.classList.contains('ck')?set.add(i):set.delete(i);localStorage.setItem(KEY,JSON.stringify([...set]))});
+});
+</script>
+</body>
+</html>

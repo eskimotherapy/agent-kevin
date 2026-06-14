@@ -25,7 +25,7 @@ Kevin is a portable, file-based personal AI assistant that runs inside [Claude C
 This isn't a chat wrapper. It's an **operating system for personal AI**:
 
 - A 28-tool MCP server for tasks, knowledge compilation, reports, search, page-speed, Playwright, and Google Search Console.
-- A 19-skill library covering onboarding, project lifecycle, daily/weekly/monthly cadences, and read-only SEO auditing.
+- A 20-skill library covering onboarding, project lifecycle, daily/weekly/monthly cadences, trip planning, and read-only SEO auditing.
 - A knowledge pipeline that turns every conversation into structured, queryable memory.
 - A skill-pack system for opt-in capabilities (SEO, Browser) and an install-on-demand bridge to community skill libraries via [skills.sh](https://skills.sh).
 - All bundled behaviour is `disable-model-invocation: true`. Kevin only acts when you ask, never spontaneously.
@@ -542,7 +542,7 @@ graph LR
 
 ## 🧱 What you get
 
-### Core skills (13), always loaded
+### Core skills (14), always loaded
 
 | Skill | What it does |
 |---|---|
@@ -556,6 +556,7 @@ graph LR
 | `weekly-goals` / `monthly-goals` / `yearly-goals` | Goal-setting cadences — weeks, monthly themes, and the year planned quarter by quarter |
 | `quick-pulse` | 60-second status check |
 | `self-review` | Process feedback into skill refinements |
+| `itinerary` | Wizard-style trip planner → interviews you, researches flights/routes/prices, renders an interactive, print-ready HTML itinerary into a trips project |
 
 > Custom-skill authoring isn't a Kevin skill, because Claude Code already ships a native [`skill-creator`](https://github.com/anthropics/claude-plugins-official) plugin that does exactly that. Use it for your own skills.
 
