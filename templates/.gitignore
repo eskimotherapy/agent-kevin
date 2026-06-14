@@ -10,8 +10,11 @@ certificates/
 # local overrides
 .claude/settings.local.json
 
-# runtime state (tokens, compile state, logs)
-.kevin/
+# runtime state (tokens, logs) — but TRACK the compile cursor: it's the only
+# record of what's been ingested, and as a gitignored file it can be silently
+# rolled back (e.g. by iCloud), which corrupts memory on the next blind compile.
+.kevin/*
+!.kevin/knowledge.json
 
 # playwright capture artifacts (screenshots, pdfs, recordings — binary, regenerable)
 reports/captures/

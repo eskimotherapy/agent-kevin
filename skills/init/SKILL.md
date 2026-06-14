@@ -308,16 +308,23 @@ rm "$CLAUDE_DEST.bak"
 
 If `COLLISION="yes"`, note this for the Step 9 status block so the user knows Kevin wrote to `CLAUDE.local.md`. Claude Code auto-loads `.local.md` files alongside the main `CLAUDE.md`, so the user's existing instructions and Kevin's coexist — Kevin's `@-imports` cascade still pulls in the identity stack.
 
-Write a `.gitignore` so the home dir is safe to track in git out of the box. **Collision-aware**: if one already exists, don't overwrite — but append the Kevin-critical entries (`.claude/settings.local.json` holds API keys, `.kevin/` holds runtime tokens + compile state, `.obsidian/workspace.json` churns on every Obsidian pane move) if they aren't already covered. The first two must be gitignored or the user will leak secrets / churn on every Kevin run; the third saves the operator from a dirty working tree every time they open the vault.
+Write a `.gitignore` so the home dir is safe to track in git out of the box. **Collision-aware**: if one already exists, don't overwrite — but append the Kevin-critical entries (`.claude/settings.local.json` holds API keys, `.kevin/*` ignores runtime tokens + logs while **tracking the `knowledge.json` compile cursor**, `.obsidian/workspace.json` churns on every Obsidian pane move) if they aren't already covered. The first two must be gitignored or the user will leak secrets / churn on every Kevin run; the third saves the operator from a dirty working tree every time they open the vault.
+
+The compile cursor (`.kevin/knowledge.json`) is the *only* record of what's been ingested. Left fully gitignored it can be silently rolled back (iCloud, a restore, a fresh clone) and the next blind compile re-ingests everything and corrupts memory — so we track it while keeping the rest of `.kevin/` (tokens, logs) ignored.
 
 ```bash
 if [ ! -f "$HOME_DIR/.gitignore" ]; then
   cp "${CLAUDE_PLUGIN_ROOT}/templates/.gitignore" "$HOME_DIR/.gitignore"
 else
   # Existing .gitignore — append Kevin-critical entries if missing.
+  # Upgrade a legacy bare `.kevin/` (ignores the cursor too) to the
+  # cursor-tracking pattern: drop the line, the APPEND below re-adds it.
+  if grep -qxF ".kevin/" "$HOME_DIR/.gitignore"; then
+    grep -vxF ".kevin/" "$HOME_DIR/.gitignore" > "$HOME_DIR/.gitignore.tmp" && mv "$HOME_DIR/.gitignore.tmp" "$HOME_DIR/.gitignore"
+  fi
   APPEND=""
   grep -qxF ".claude/settings.local.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.claude/settings.local.json"$'\n'
-  grep -qxF ".kevin/" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.kevin/"$'\n'
+  grep -qxF ".kevin/*" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.kevin/*"$'\n'"!.kevin/knowledge.json"$'\n'
   grep -qxF ".obsidian/workspace.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.obsidian/workspace.json"$'\n'
   grep -qxF ".obsidian/cache/" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.obsidian/cache/"$'\n'
   if [ -n "$APPEND" ]; then
@@ -326,7 +333,7 @@ else
 fi
 ```
 
-Match is exact-line (`grep -xF`) — so `.kevin/` won't false-match on `!.kevin/keep-me` or a partial substring. The full template (when written fresh) also ignores secrets (`.env*`, `keys.json`, `*.pem`, `*.key`, `certificates/`) and OS cruft (`.DS_Store`, `Thumbs.db`); on collision we trust the user's existing patterns for those and only enforce the two Kevin-specific entries.
+Match is exact-line (`grep -xF`) — so `.kevin/*` won't false-match on `!.kevin/knowledge.json` or a partial substring, and the negation must follow the `.kevin/*` line (git can't re-include a file whose parent dir is ignored, so order matters). The full template (when written fresh) also ignores secrets (`.env*`, `keys.json`, `*.pem`, `*.key`, `certificates/`) and OS cruft (`.DS_Store`, `Thumbs.db`); on collision we trust the user's existing patterns for those and only enforce the Kevin-specific entries.
 
 Write project settings so the plugin auto-loads on subsequent launches AND the **always-on core** MCP tools are pre-granted (no per-call confirm prompts). Pack-gated tools are NOT granted here — they land in `permissions.allow` only when the matching `configure-skills` walk runs (Step 8 inline or `/agent-kevin:configure-skills` later).
 
