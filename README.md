@@ -415,8 +415,8 @@ Four MCP tools backed by a bundled chromium (installed once via `bun install`'s 
 **In a conversation (the common case)** — just ask:
 
 ```
-you  > screenshot https://walapay.io and call it walapay-landing
-kevin > [calls playwright_screenshot(input=…, name=walapay-landing)] → reports/captures/<ts>-walapay-landing.png
+you  > screenshot https://acme.com and call it acme-landing
+kevin > [calls playwright_screenshot(input=…, name=acme-landing)] → reports/captures/<ts>-acme-landing.png
 
 you  > render ~/Documents/business-plan.md to PDF
 kevin > [calls playwright_pdf(input=…)] → reports/captures/<ts>-pdf.pdf  (mermaid diagrams come through)
@@ -1059,7 +1059,14 @@ git worktree remove ../myrepo-feature-x   # clean up when merged
 
 Point one cmux workspace (and one agent) at each worktree. Agent A refactors on `feature-x` while Agent B fixes a bug on `bugfix-y`, no merge conflicts mid-flight, no "wait, why did my file just change" surprises. When a branch lands, remove the worktree and the folder's gone. (Claude Code's own background agents use the same trick under the hood.)
 
-> 💡 Managing worktrees from the CLI gets tedious. [Tower](https://www.git-tower.com) has an excellent worktree GUI — create, switch, and prune them visually. See [tip #10](#10-tower-for-git-review).
+**Two conventions make this painless** (and Kevin follows both):
+
+- **Worktrees are siblings of the main repo, never nested inside it.** The main checkout lives at, say, `~/Developer/Acme/tech/acme`, so a worktree lands one level up alongside it: `~/Developer/Acme/tech/acme-my-feature`. From the main checkout, the `../` keeps it at the same level: `git worktree add ../acme-my-feature -b feat/my-feature`. A nested worktree would sit under a tracked path and pollute the parent's working tree.
+- **A fresh worktree needs its gitignored local files before it can run.** A new checkout has no `.env*`, no `.claude/settings.local.json`, no installed deps or built packages. You need to copy the machine-local config over from the main checkout, install, and build before the branch is workable.
+
+**You can just ask Kevin to do all of this.** The bundled `setup-worktree` skill (`/agent-kevin:setup-worktree`, like every Kevin skill it only acts when you ask) first pins down which repo you mean (it asks when the HOME sits above several repos), creates the worktree as a sibling on a new branch, then bootstraps it: it copies the gitignored local files (`.env*`, `.claude/settings.local.json`, `.cursor`, `.cmux`) from the main checkout, detects the package manager (bun / pnpm / yarn / npm), installs, and runs the repo's build script. Say "make a worktree for the billing refactor" and you get a ready-to-code checkout. The bootstrap is a single Bun-launched TypeScript script ([`skills/setup-worktree/scripts/setup-worktree.ts`](skills/setup-worktree/scripts/setup-worktree.ts)) that drives whichever package manager the target repo actually uses, so it works the same whether the repo is on bun or pnpm.
+
+> 💡 Managing worktrees from the CLI gets tedious. [Tower](https://www.git-tower.com) has an excellent worktree GUI to create, switch, and prune them visually. See [tip #10](#10-tower-for-git-review).
 
 ### 6. Editor: VS Code, not Cursor
 

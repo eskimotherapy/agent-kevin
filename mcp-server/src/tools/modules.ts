@@ -19,5 +19,6 @@ export const TOOL_MODULES = [
   'reports',
   'serpapi',
   'status',
-  'tasks'
+  'tasks',
+  'worktree'
 ] as const;

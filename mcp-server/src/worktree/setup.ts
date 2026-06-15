@@ -1,0 +1,318 @@
+/**
+ * Worktree create + bootstrap — the shared implementation behind the `setup_worktree`
+ * MCP tool and the `kevin worktree` CLI command.
+ *
+ * Creates a sibling git worktree, copies the gitignored local files a fresh checkout
+ * lacks (`.env*`, `.claude/settings.local.json`, `.cmux`, root `.cursor`/`.cursorignore`),
+ * detects the package manager, installs, and runs the first build script it finds.
+ * Read-only against the source checkout — it copies, never deletes or overwrites there.
+ *
+ * Runs git/package-manager via execFileSync (argv arrays, no shell). When invoked through
+ * the MCP server this executes OUTSIDE the Bash command sandbox, so `git worktree add` can
+ * write the main repo's `.git/config` and the checked-out config files (`.vscode/settings.json`,
+ * `.mcp.json`) that the seatbelt denies under the Bash tool. Invoked via the CLI from a
+ * sandboxed Bash, those same writes are still blocked — the CLI is the terminal/automation path.
+ */
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+
+/** Build artifacts and VCS internals — never scanned or copied. */
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.turbo']);
+/** Local config dirs copied whole wherever they appear in the tree (root or per-package). */
+const LOCAL_DIR_NAMES = new Set(['.cmux']);
+/** Local config files/dirs copied when present at the repo root only. */
+const LOCAL_PATHS = ['.cursor', '.cursorignore'];
+/** Lockfile → package manager. First match wins, so order by specificity. */
+const LOCKFILES = [
+  { file: 'bun.lock', pm: 'bun' },
+  { file: 'bun.lockb', pm: 'bun' },
+  { file: 'pnpm-lock.yaml', pm: 'pnpm' },
+  { file: 'yarn.lock', pm: 'yarn' },
+  { file: 'package-lock.json', pm: 'npm' }
+] as const;
+/** Build scripts to look for in package.json, in preference order — full `build` first. */
+const BUILD_SCRIPTS = ['build', 'build:packages', 'build:libs'];
+
+/** Base branches to start a NEW worktree branch from, in preference order. Falls back to current HEAD. */
+const BASE_BRANCH_PREFERENCE = ['dev', 'develop', 'main', 'master'];
+
+/** These strings become git / path arguments — keep them to safe charsets. */
+const BRANCH_RE = /^[A-Za-z0-9._/-]+$/;
+const SLUG_RE = /^[A-Za-z0-9._-]+$/;
+
+interface PackageJson {
+  packageManager?: string;
+  scripts?: Record<string, string>;
+}
+
+export interface StepResult {
+  step: string;
+  ok: boolean;
+  output: string;
+}
+
+export interface SetupWorktreeOptions {
+  /** Absolute path to the MAIN checkout of the repo the worktree is for. */
+  repoPath: string;
+  /** Branch name; created with -b, or checked out if it already exists. A bare name (no "/") is
+   *  namespaced under the operator (e.g. `basem/<name>`); a name with "/" is kept verbatim. */
+  branch: string;
+  /** Explicit branch/ref to start the new branch from. Overrides the dev→develop→main→master→HEAD
+   *  auto-detection. Must resolve in the repo. Ignored when the target branch already exists. */
+  baseBranch?: string;
+  /** Folder suffix for the worktree dir (<repo>-<slug>); defaults to the branch's last segment. */
+  slug?: string;
+  /** Relative subdirs with their own lockfile to install after the main bootstrap. */
+  extraInstalls?: string[];
+}
+
+export interface SetupWorktreeResult {
+  worktreePath: string;
+  branch: string;
+  branchExists: boolean;
+  /** The branch the new worktree branched from (resolved base, or current HEAD on fallback). */
+  baseBranch: string;
+  sourceCheckout: string;
+  copied: string[];
+  packageManager: string | null;
+  built: boolean;
+  extraInstalled: string[];
+  steps: StepResult[];
+}
+
+/** True for env files to carry over: `.env` and any `.env.*` (including `.env.example`). */
+const isEnvFile = (fileName: string) => fileName === '.env' || fileName.startsWith('.env.');
+
+/** Local config files copied wherever they appear, matched by (parent dir, file name). */
+const isLocalConfigFile = (parentDir: string, fileName: string) =>
+  isEnvFile(fileName) || (fileName === 'settings.local.json' && basename(parentDir) === '.claude');
+
+/** Run git with argv (no shell), capturing trimmed stdout; throws on non-zero. */
+const git = (cwd: string, args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+
+/** True if `ref` resolves to any object (branch, tag, remote ref, SHA) in the repo at `cwd`. */
+const refExists = (cwd: string, ref: string): boolean => {
+  try {
+    git(cwd, ['rev-parse', '--verify', '--quiet', ref]);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** True if `name` exists as a local branch in the repo at `cwd`. */
+const localBranchExists = (cwd: string, name: string): boolean => refExists(cwd, `refs/heads/${name}`);
+
+/** Sanitise a token to the branch-namespace charset (lowercase, `[a-z0-9._-]`). */
+const sanitizeNamespace = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+
+/**
+ * The operator's branch namespace (lowercased), derived from git identity. Tries the first token of
+ * `user.name` first — an email local-part can be `first.last`, which makes a worse folder than a
+ * bare first name — then falls back to the email local-part. Null if neither is configured.
+ */
+const branchNamespace = (cwd: string): string | null => {
+  const tryGit = (args: string[]): string => {
+    try {
+      return git(cwd, args);
+    } catch {
+      return '';
+    }
+  };
+  const fromName = sanitizeNamespace(tryGit(['config', 'user.name']).split(/\s+/)[0] ?? '');
+  if (fromName) {
+    return fromName;
+  }
+  const email = tryGit(['config', 'user.email']);
+  const fromEmail = email.includes('@') ? sanitizeNamespace(email.split('@')[0] ?? '') : '';
+  return fromEmail || null;
+};
+
+/**
+ * Run a package-manager command, capturing output. NEVER inherit stdio — under the MCP server
+ * this process's stdout is the stdio transport, so child output on it would corrupt the protocol.
+ */
+const runCapture = (command: string, args: string[], cwd: string): { ok: boolean; output: string } => {
+  try {
+    const output = execFileSync(command, args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32'
+    });
+    return { ok: true, output };
+  } catch (error) {
+    const failure = error as { stdout?: string; stderr?: string; message?: string };
+    const output = [failure.stdout, failure.stderr].filter(Boolean).join('\n') || failure.message || String(error);
+    return { ok: false, output };
+  }
+};
+
+const tail = (text: string, lines = 20) => text.split('\n').slice(-lines).join('\n');
+
+/**
+ * Recursively collect local files/dirs to carry over (config files + LOCAL_DIR_NAMES), as paths
+ * relative to `root`. A matched directory is taken whole — we don't descend into it.
+ */
+const findLocalEntries = (dir: string, root: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (LOCAL_DIR_NAMES.has(entry.name)) {
+        return [relative(root, fullPath)];
+      }
+      return SKIP_DIRS.has(entry.name) ? [] : findLocalEntries(fullPath, root);
+    }
+    return isLocalConfigFile(dir, entry.name) ? [relative(root, fullPath)] : [];
+  });
+
+const readPkg = (root: string): PackageJson => JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as PackageJson;
+
+/** Detect the target repo's package manager: packageManager field → lockfile → bun. */
+const detectPackageManager = (root: string, pkg: PackageJson) => {
+  const declared = pkg.packageManager?.split('@')[0]?.trim();
+  if (declared) {
+    return declared;
+  }
+  const match = LOCKFILES.find(({ file }) => existsSync(join(root, file)));
+  return match?.pm ?? 'bun';
+};
+
+/** Install (and optionally build) a directory that has a package.json. */
+const installAndBuild = (dir: string, withBuild: boolean): { packageManager: string; built: boolean; steps: StepResult[] } => {
+  const pkg = readPkg(dir);
+  const packageManager = detectPackageManager(dir, pkg);
+  const steps: StepResult[] = [];
+
+  const install = runCapture(packageManager, ['install'], dir);
+  steps.push({ step: `${packageManager} install`, ok: install.ok, output: tail(install.output) });
+
+  let built = false;
+  if (install.ok && withBuild) {
+    const buildScript = BUILD_SCRIPTS.find((name) => pkg.scripts?.[name]);
+    if (buildScript) {
+      const build = runCapture(packageManager, ['run', buildScript], dir);
+      built = build.ok;
+      steps.push({ step: `${packageManager} run ${buildScript}`, ok: build.ok, output: tail(build.output) });
+    }
+  }
+  return { packageManager, built, steps };
+};
+
+export const setupWorktree = ({ repoPath, branch, baseBranch: baseBranchOverride, slug, extraInstalls }: SetupWorktreeOptions): SetupWorktreeResult => {
+  if (!BRANCH_RE.test(branch)) {
+    throw new Error(`Invalid branch name: ${branch}`);
+  }
+  const resolvedRepo = resolve(repoPath);
+  if (!existsSync(resolvedRepo) || !statSync(resolvedRepo).isDirectory()) {
+    throw new Error(`repoPath does not exist or is not a directory: ${resolvedRepo}`);
+  }
+
+  // Main checkout = first `worktree` entry of the porcelain list. That's both the copy
+  // source (it holds the gitignored locals) and the parent for the sibling worktree path.
+  const listing = git(resolvedRepo, ['worktree', 'list', '--porcelain']);
+  const firstLine = listing.split('\n').find((line) => line.startsWith('worktree '));
+  if (!firstLine) {
+    throw new Error(`Not a git repository (no worktree list): ${resolvedRepo}`);
+  }
+  const mainCheckout = resolve(firstLine.slice('worktree '.length).trim());
+
+  // Branch-folder convention: namespace a bare branch name under the operator (e.g. basem/<name>),
+  // derived from git identity. A name that already contains "/" is kept verbatim; with no identity
+  // configured, fall back to the bare name (no folder).
+  const namespace = branchNamespace(mainCheckout);
+  const finalBranch = branch.includes('/') || !namespace ? branch : `${namespace}/${branch}`;
+
+  const featureSlug = slug ?? finalBranch.split('/').pop() ?? finalBranch;
+  if (!SLUG_RE.test(featureSlug)) {
+    throw new Error(`Invalid slug: ${featureSlug}`);
+  }
+  const worktreePath = join(dirname(mainCheckout), `${basename(mainCheckout)}-${featureSlug}`);
+  if (existsSync(worktreePath)) {
+    throw new Error(`Worktree path already exists: ${worktreePath}`);
+  }
+
+  const branchExists = localBranchExists(mainCheckout, finalBranch);
+
+  // Start-point for a NEW branch: explicit override (must resolve) → first available base in
+  // preference order → the main checkout's current branch (HEAD). An existing branch is checked
+  // out as-is (it's its own base).
+  const resolveBase = (): string => {
+    if (baseBranchOverride) {
+      if (!BRANCH_RE.test(baseBranchOverride)) {
+        throw new Error(`Invalid baseBranch: ${baseBranchOverride}`);
+      }
+      if (!refExists(mainCheckout, baseBranchOverride)) {
+        throw new Error(`baseBranch does not exist in the repo: ${baseBranchOverride}`);
+      }
+      return baseBranchOverride;
+    }
+    return (
+      BASE_BRANCH_PREFERENCE.find((name) => localBranchExists(mainCheckout, name)) ??
+      git(mainCheckout, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    );
+  };
+  const baseBranch = branchExists ? finalBranch : resolveBase();
+
+  git(
+    mainCheckout,
+    branchExists
+      ? ['worktree', 'add', worktreePath, finalBranch]
+      : ['worktree', 'add', worktreePath, '-b', finalBranch, baseBranch]
+  );
+
+  // Copy gitignored locals from the main checkout — copy only, never delete/overwrite there.
+  const copied = [
+    ...new Set([
+      ...findLocalEntries(mainCheckout, mainCheckout),
+      ...LOCAL_PATHS.filter((path) => existsSync(join(mainCheckout, path)))
+    ])
+  ];
+  copied.forEach((rel) => {
+    const target = join(worktreePath, rel);
+    mkdirSync(dirname(target), { recursive: true });
+    cpSync(join(mainCheckout, rel), target, { recursive: true });
+  });
+
+  const steps: StepResult[] = [];
+  let packageManager: string | null = null;
+  let built = false;
+
+  if (existsSync(join(worktreePath, 'package.json'))) {
+    const result = installAndBuild(worktreePath, true);
+    packageManager = result.packageManager;
+    built = result.built;
+    steps.push(...result.steps);
+  }
+
+  const extraInstalled: string[] = [];
+  for (const sub of extraInstalls ?? []) {
+    if (isAbsolute(sub) || sub.split(/[/\\]/).includes('..')) {
+      throw new Error(`extraInstalls entries must be relative paths without "..": ${sub}`);
+    }
+    const subDir = join(worktreePath, sub);
+    if (!existsSync(join(subDir, 'package.json'))) {
+      steps.push({ step: `extra:${sub}`, ok: false, output: 'no package.json — skipped' });
+      continue;
+    }
+    const result = installAndBuild(subDir, false);
+    steps.push(...result.steps.map((entry) => ({ ...entry, step: `extra:${sub} ${entry.step}` })));
+    if (result.steps.every((entry) => entry.ok)) {
+      extraInstalled.push(sub);
+    }
+  }
+
+  return {
+    worktreePath,
+    branch: finalBranch,
+    branchExists,
+    baseBranch,
+    sourceCheckout: mainCheckout,
+    copied,
+    packageManager,
+    built,
+    extraInstalled,
+    steps
+  };
+};
