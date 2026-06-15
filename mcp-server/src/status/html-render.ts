@@ -39,6 +39,7 @@ export const PAGES = [
   { id: 'sessions', icon: '💬', label: 'Sessions' },
   { id: 'brain', icon: '🧠', label: 'Brain' },
   { id: 'reports', icon: '📰', label: 'Reports' },
+  { id: 'scheduler', icon: '⏰', label: 'Scheduler' },
   { id: 'capabilities', icon: '🧩', label: 'Capabilities' },
   { id: 'profile', icon: '👤', label: 'Profile', hidden: true },
   { id: 'persona', icon: '🍌', label: 'Persona' },
@@ -686,6 +687,98 @@ const pageReports = (snap: StatusSnapshot): string => {
   );
 };
 
+// ── scheduler ─────────────────────────────────────────────────────────
+// Placeholder reminder of the recurring routines and when to run them. Every
+// job is manual today — lo-046 will fire them in-session against the
+// subscription bucket. `nextDate` returns the next calendar date the cadence
+// lands on; `resolveNextRun` rolls it forward when today's slot has passed.
+
+interface ScheduledJob {
+  label: string;
+  /** Plugin skill invoked, e.g. `sync` → `/<plugin>:sync`. */
+  skill: string;
+  /** Human cadence shown in the When column. */
+  when: string;
+  /** Target time of day (HH:MM), used both for display and slot-passed checks. */
+  anchor: string;
+  /** Next calendar date (YYYY-MM-DD) the cadence falls on, today inclusive. */
+  nextDate: (todayIso: string) => string;
+}
+
+const addDays = (iso: string, days: number): string =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+const ymd = (year: number, month: number, day: number): string =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+/** Next occurrence of weekday `target` (0=Sun..6=Sat), today inclusive. */
+const nextWeekday = (iso: string, target: number): string =>
+  addDays(iso, (target - new Date(`${iso}T00:00:00Z`).getUTCDay() + 7) % 7);
+
+/** Next month-day `target` (e.g. 1 or 15), today inclusive. */
+const nextMonthlyDay = (iso: string, target: number): string => {
+  const [year, month] = iso.split('-').map(Number);
+  if (Number(iso.slice(8, 10)) <= target) return ymd(year, month, target);
+  return month === 12 ? ymd(year + 1, 1, target) : ymd(year, month + 1, target);
+};
+
+/** Next quarter start (Jan/Apr/Jul/Oct 1), today inclusive. */
+const nextQuarterStart = (iso: string): string => {
+  const [year, month] = iso.split('-').map(Number);
+  const onFirst = Number(iso.slice(8, 10)) === 1;
+  const start = [1, 4, 7, 10].find((qm) => qm > month || (qm === month && onFirst));
+  return start ? ymd(year, start, 1) : ymd(year + 1, 1, 1);
+};
+
+const SCHEDULE: ScheduledJob[] = [
+  { label: 'Sync (morning)', skill: 'sync', when: 'Daily', anchor: '07:00', nextDate: (iso) => iso },
+  { label: 'Sync (evening)', skill: 'sync', when: 'Daily', anchor: '19:00', nextDate: (iso) => iso },
+  { label: 'Weekly goals', skill: 'weekly-goals', when: 'Mondays', anchor: '08:00', nextDate: (iso) => nextWeekday(iso, 1) },
+  { label: 'Monthly goals', skill: 'monthly-goals', when: '1st of month', anchor: '08:00', nextDate: (iso) => nextMonthlyDay(iso, 1) },
+  { label: 'Yearly goals', skill: 'yearly-goals', when: 'Quarterly · Jan/Apr/Jul/Oct 1', anchor: '08:00', nextDate: nextQuarterStart },
+  { label: 'Self-review', skill: 'self-review', when: '15th of month', anchor: '08:00', nextDate: (iso) => nextMonthlyDay(iso, 15) }
+];
+
+/** Roll the next date forward a period when today is the target but its time slot already passed. */
+const resolveNextRun = (job: ScheduledJob, todayIso: string, nowHHMM: string): string => {
+  const candidate = job.nextDate(todayIso);
+  return candidate === todayIso && nowHHMM >= job.anchor ? job.nextDate(addDays(todayIso, 1)) : candidate;
+};
+
+const prettyDate = (iso: string): string =>
+  new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC'
+  });
+
+const pageScheduler = (snap: StatusSnapshot): string => {
+  const today = snap.runtime.isoDate;
+  const now = snap.runtime.time;
+  const plugin = snap.runtime.pluginName;
+
+  const rows = SCHEDULE.map((job) => {
+    const next = resolveNextRun(job, today, now);
+    const days = daysBetween(today, next);
+    const rel = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days}d`;
+    return [
+      `<span class="ttl">${esc(job.label)}</span>`,
+      `<span class="dim">${esc(job.when)} · ${esc(job.anchor)}</span>`,
+      `<span class="nowrap">${esc(prettyDate(next))} <span class="dim">${esc(rel)}</span></span>`,
+      '<span class="chip manual">manual</span>',
+      `<span class="good nowrap">/${esc(plugin)}:${esc(job.skill)}</span>`
+    ];
+  });
+
+  return page(
+    'scheduler',
+    `Scheduler <span class="accent">⏰</span>`,
+    'Recurring routines and when to run them — manual for now.',
+    table(['Task', 'When', 'Next', 'Status', 'Invoke'], rows, ' data-row')
+  );
+};
+
 /** Curated starter recipes — product copy parameterized by plugin name. */
 const cheatsheet = (plugin: string): Array<{ when: string; say: string; what: string }> => [
   {
@@ -1212,6 +1305,7 @@ const PAGE_BUILDERS: Record<(typeof PAGES)[number]['id'], (snap: StatusSnapshot)
   sessions: pageSessions,
   brain: pageBrain,
   reports: pageReports,
+  scheduler: pageScheduler,
   capabilities: pageCapabilities,
   profile: pageProfile,
   persona: pagePersona,
