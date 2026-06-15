@@ -2,7 +2,7 @@ import { writeReport, type ReportCategory, type ReportStatus } from '@/reports';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { z } from 'zod';
 
-const CATEGORIES: [ReportCategory, ...ReportCategory[]] = ['briefings', 'plans'];
+const CATEGORIES: [ReportCategory, ...ReportCategory[]] = ['briefings', 'plans', 'radar'];
 
 const STATUSES: [ReportStatus, ...ReportStatus[]] = ['clean', 'findings', 'critical', 'draft'];
 

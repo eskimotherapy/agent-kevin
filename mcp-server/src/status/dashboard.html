@@ -130,6 +130,13 @@ main { flex: 1; min-width: 0; padding: 30px 38px 70px; }
 a.chip:hover { color: var(--cyan); text-decoration: none; }
 .chip.proj i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Category filter chips (Reports page): same pill look as the row chips,
+ *  clickable, active = accent fill. */
+.catchip { cursor: pointer; border: none; font: inherit; font-size: 11px; }
+.catchip:hover { color: var(--text); }
+/* Subtle selection: accent text + a faint bg lift, no bright fill or border. */
+.catchip.active { color: var(--accent); background: var(--border); }
+[data-catchips] { margin: 10px 0 18px; }
 .nowrap { white-space: nowrap; }
 td .nowrap a, td a { white-space: nowrap; }
 /* In-page routing links (status page → the surface a signal lives on). */
@@ -147,6 +154,35 @@ td .nowrap a, td a { white-space: nowrap; }
 .subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
 [data-subpanel] { display: none; }
 [data-subpanel].active { display: block; }
+
+/* ── radar digest (Sessions → Recent) — rendered where-am-i markdown ─── */
+.radar-md { font-size: 13px; line-height: 1.6; }
+.radar-md h1 { font-size: 15px; margin: 0 0 14px; color: var(--text); }
+.radar-md h2 { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim);
+  margin: 22px 0 10px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.radar-md h3 { font-size: 13px; margin: 14px 0 4px; color: var(--text); }
+.radar-md p { margin: 2px 0 10px; color: var(--text); }
+/* Through-line: the lead synthesis sentence. */
+.radar-md blockquote { margin: 0 0 18px; padding: 10px 14px; border-left: 2px solid var(--accent);
+  background: var(--panel-2); border-radius: 4px; color: var(--text); }
+.radar-md blockquote p { margin: 0; }
+/* Session title (bold) + time-ago (muted, not italic). */
+.radar-md strong { color: var(--accent); }
+.radar-md em { color: var(--dim); font-style: normal; font-size: 11px; }
+.radar-md blockquote em { color: var(--text); font-size: inherit; }
+.radar-md ul { margin: 4px 0 10px; padding-left: 18px; }
+.radar-md code { background: var(--panel-2); border-radius: 4px; padding: 1px 6px; font-size: 12px; color: var(--cyan); }
+/* Resume command: subtle badge with the ↳ icon in front. */
+.radar-md .resume { display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 9px; font-size: 11px; color: var(--dim); }
+.radar-md .resume code { background: none; padding: 0; font-size: 11px; }
+.radar-md hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.radar-md a { color: var(--cyan); }
+/* List footers — the Recent tab's "N radars on record" note and the History
+ *  tab's session count. Same treatment on both: a top divider + muted text. */
+.radar-more,
+.list-footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--dim); }
 
 /* ── tasks ─────────────────────────────────────────────────────────── */
 .filter {
@@ -224,7 +260,8 @@ pre.logtail {
 .tile .tdesc { color: var(--dim); font-size: 12px; margin-top: 5px; line-height: 1.45; }
 
 /* ── bars / charts ─────────────────────────────────────────────────── */
-.flexbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--panel-2); margin: 10px 0 6px; }
+.flexbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--border); margin: 10px 0 8px; }
 .flexbar span { min-width: 2px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
 .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; }
@@ -257,8 +294,9 @@ ul.plain li { padding: 3px 0; }
 .chip.auto { color: var(--magenta); }
 .chip.manual { color: var(--amber); }
 
-footer { margin-top: 44px; color: var(--dim); font-size: 12px; }
-footer .sep { margin: 0 8px; opacity: 0.5; }
+footer { margin-top: 44px; padding: 9px 13px; color: var(--dim); font-size: 10.5px; opacity: 0.65;
+  border: 1px dotted var(--border); border-radius: 6px; }
+footer .sep { margin: 0 7px; opacity: 0.5; }
 
 /* ── help / keyboard shortcuts ─────────────────────────────────────── */
 .help-fab {
@@ -435,14 +473,33 @@ kbd {
     else if (event.key === '?' && !typing) { event.preventDefault(); setHelp(true); }
   });
 
-  // Text filter: narrows [data-row] elements within the same filterbox.
-  document.querySelectorAll('input.filter').forEach((input) => {
-    const box = input.closest('[data-filterbox]');
-    if (!box) return;
-    input.addEventListener('input', () => {
-      const q = input.value.trim().toLowerCase();
-      box.querySelectorAll('[data-row]').forEach((row) => {
-        row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  // Filter: narrows [data-row] elements within a filterbox by the text query
+  // and the active category chip (if any), then hides date-group headings left
+  // with no visible rows.
+  const applyFilter = (box) => {
+    const q = (box.querySelector('input.filter')?.value || '').trim().toLowerCase();
+    const cat = box.querySelector('.catchip.active')?.dataset.catfilter || 'all';
+    box.querySelectorAll('[data-row]').forEach((row) => {
+      const okText = !q || row.textContent.toLowerCase().includes(q);
+      const okCat = cat === 'all' || row.dataset.cat === cat;
+      row.style.display = okText && okCat ? '' : 'none';
+    });
+    box.querySelectorAll('h3.group').forEach((heading) => {
+      let sibling = heading.nextElementSibling;
+      let anyVisible = false;
+      while (sibling && !sibling.classList.contains('group')) {
+        if (sibling.matches('[data-row]') && sibling.style.display !== 'none') anyVisible = true;
+        sibling = sibling.nextElementSibling;
+      }
+      heading.style.display = anyVisible ? '' : 'none';
+    });
+  };
+  document.querySelectorAll('[data-filterbox]').forEach((box) => {
+    box.querySelector('input.filter')?.addEventListener('input', () => applyFilter(box));
+    box.querySelectorAll('.catchip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        box.querySelectorAll('.catchip').forEach((other) => other.classList.toggle('active', other === chip));
+        applyFilter(box);
       });
     });
   });

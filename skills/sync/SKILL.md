@@ -1,8 +1,8 @@
 ---
 name: sync
-description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention, optionally chain into a morning or evening briefing, then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
+description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention, optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 disable-model-invocation: true
-allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__report_write, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Sync
@@ -13,8 +13,8 @@ One pass through every maintenance op, in dependency order, ending in a single s
 
 Optional first arg selects a briefing to chain after sync completes:
 
-- `morning` — run the [morning-briefing](../morning-briefing/SKILL.md) protocol after step 7.
-- `evening` — run the [evening-briefing](../evening-briefing/SKILL.md) protocol after step 7.
+- `morning` — run the [morning-briefing](../morning-briefing/SKILL.md) protocol at step 8.
+- `evening` — run the [evening-briefing](../evening-briefing/SKILL.md) protocol at step 8.
 - _(none)_ — pick automatically from the local clock: **morning** from 3am up to 3pm, **evening** from 3pm up to 3am. (`date +%H` if today's time isn't already in context.) State which briefing was auto-selected in the output header.
 
 The briefing reads the post-sync state, so it's strictly better than running the briefing standalone against stale data. Output gets a second block appended (see Output).
@@ -70,7 +70,7 @@ Lint with `fix:true` already calls this internally — running it again is a no-
 
 ### 5. Flywheel pass
 
-Run the [flywheel](../flywheel/SKILL.md) protocol — cross-project work sweep. Touch each active project at least briefly, advance/update/close tasks, capture decisions. Placement is deliberate: after the wiki is clean (steps 1-4) so the flywheel reads a current memory index, but **before** scan + dashboard (steps 6 and 9) so those reflect the post-flywheel task state.
+Run the [flywheel](../flywheel/SKILL.md) protocol — cross-project work sweep. Touch each active project at least briefly, advance/update/close tasks, capture decisions. Placement is deliberate: after the wiki is clean (steps 1-4) so the flywheel reads a current memory index, but **before** scan + dashboard (steps 6 and 10) so those reflect the post-flywheel task state.
 
 Quick form for one-shot execution:
 1. Read `<HOME>/knowledge/memory/index.md` `## Active Threads` for current portfolio state.
@@ -81,7 +81,7 @@ Quick form for one-shot execution:
 6. Log architectural decisions to `<HOME>/knowledge/memory/index.md` `## Recent Decisions`.
 7. **Persist flywheel snapshot.** Call `mcp__plugin_agent-kevin_kevin__report_write` with `category: 'briefings'`, `slug: 'flywheel'`, `skill: 'flywheel'`, a one-line title, a body covering projects touched + tasks moved + concepts drafted, and `status: 'findings'` if anything moved (closes, updates, threads, concepts, decisions) or `status: 'clean'` if only the archive sweep ran. The morning brief reads these to pick up the trail across sessions.
 
-Bound the breadth: touch every active project, don't sink the whole session into one. The archive sweep (step 4) is the one mechanical action that always runs — closing tasks throughout the week without archiving lets `Recently Closed` accumulate and clutters the active dirs. Steps 4 and 7 are unconditional; everything else fires only when there's real work to do. Skip the in-skill wrap summary — that lands in step 7 below as part of the sync output. Flywheel's orient sub-steps (dashboard refresh, TASKS.md read, task_scan) are intentionally fanned out across sync's steps 6-9 (scan at 6, the dust-settled read at 7, the dashboard render last at 9) so they reflect post-flywheel — and post-briefing — state, not pre-flywheel.
+Bound the breadth: touch every active project, don't sink the whole session into one. The archive sweep (step 4) is the one mechanical action that always runs — closing tasks throughout the week without archiving lets `Recently Closed` accumulate and clutters the active dirs. Steps 4 and 7 are unconditional; everything else fires only when there's real work to do. Skip the in-skill wrap summary — that lands in step 7 below as part of the sync output. Flywheel's orient sub-steps (dashboard refresh, TASKS.md read, task_scan) are intentionally fanned out across sync's steps 6-10 (scan at 6, the dust-settled read at 7, the dashboard render last at 10) so they reflect post-flywheel — and post-briefing — state, not pre-flywheel.
 
 ### 6. Surface what needs attention
 
@@ -110,9 +110,27 @@ Resolve which briefing to run: the explicit `morning`/`evening` arg wins; with n
 
 To run a sync with no briefing at all, say so explicitly (e.g. "sync only").
 
-### 9. Regenerate the dashboards (last)
+### 9. Session radar
 
-This is the final step — it runs **after** the briefing, on purpose. `dashboard.html`'s News section is harvested from `reports/briefings/*.md`, and the Reports tab reads `reports/index.md` — both of which step 8 just wrote. Rendering here (rather than before the briefing) is what lets the dashboard show the current run's news and report entry instead of the previous run's. By now every upstream producer has run: compile, lint, flywheel mutations, scan, and the briefing.
+Run the [where-am-i](../where-am-i/SKILL.md) protocol — a snapshot of the Claude Code
+sessions from the last 24h scoped to this HOME, so the sync run leaves behind a dated
+record of which threads were live and where each stood. Inline form:
+
+1. `bun "$CLAUDE_PLUGIN_ROOT/skills/where-am-i/scripts/list_sessions.ts" --hours 24`
+2. Write the per-session summaries per where-am-i's Step 2 (substantive paragraphs, not
+   fragments; read the transcript tail if a snippet is too thin) and render the digest
+   per its Step 3.
+3. Persist it via where-am-i's Step 4 (`report_write` with `category: 'radar'`,
+   `slug: 'where-am-i'`, `skill: 'where-am-i'`). Skip only if zero sessions returned.
+
+Independent of the wiki state, so order doesn't matter for correctness — placed here so
+the radar report lands in `reports/index.md` before step 10's dashboard render picks it
+up. The standalone `where-am-i` skill stays the canonical entry point; this step just
+folds it into the one-pass refresh.
+
+### 10. Regenerate the dashboards (last)
+
+This is the final step — it runs **after** the briefing, on purpose. `dashboard.html`'s News section is harvested from `reports/briefings/*.md`, and the Reports tab reads `reports/index.md` — both of which step 8 just wrote. Rendering here (rather than before the briefing) is what lets the dashboard show the current run's news and report entry instead of the previous run's. By now every upstream producer has run: compile, lint, flywheel mutations, scan, the briefing, and the session radar.
 
 One call rebuilds both `<HOME>/dashboard.html` and `projects/TASKS.md` — call it once here, nowhere else in sync. It runs even for "sync only" (it just won't have new briefing news to pick up):
 

@@ -12,7 +12,8 @@
  */
 import { FILES, FOLDERS, MARKDOWN_URL, PLUGIN_NAME, TIMEZONE } from '@/config';
 import { contextManifest, type ManifestEntry } from '@/context';
-import { nowTime } from '@/shared/date';
+import { nowTime, todayDate } from '@/shared/date';
+import { sanitizeHtml } from '@/shared/sanitize-html';
 import type { TaskFile } from '@/shared/types';
 import { discoverProjects, scanAllTasks, scanArchivedTasks } from '@/tasks/scan';
 import { resolveTasks } from '@/tasks/resolve';
@@ -58,6 +59,24 @@ export interface ReportRef {
   skill: string;
   /** Status emoji from the index line (🟢/🟠/🔴/⏳); '' if absent. */
   status: string;
+  /** Category derived from the href path: `briefings` | `plans` | `radar` | ''. */
+  category: string;
+}
+
+/** The most recent radar (where-am-i) digest, pre-rendered to HTML for the
+ *  Sessions page Radar tab. Null when no radar report exists yet. */
+export interface RadarLatest {
+  date: string;
+  time: string;
+  title: string;
+  /** HOME-relative path to the source report, e.g. `reports/radar/…md`. */
+  href: string;
+  /** Report body (frontmatter + trailing stats footer stripped) rendered to
+   *  HTML via marked. */
+  html: string;
+  /** The digest's "N sessions · window · scope" stats line, lifted out of the
+   *  body so the dashboard can render it below the footer divider. */
+  footer?: string;
 }
 
 export interface SkillInfo {
@@ -332,6 +351,7 @@ export interface StatusSnapshot {
   };
   reports: ReportRef[];
   reportsTotal: number;
+  radarLatest: RadarLatest | null;
   health: Health;
 }
 
@@ -1242,12 +1262,34 @@ const collectRuntime = (): StatusSnapshot['runtime'] => {
   };
 };
 
-/** All report entries from reports/index.md (newest first), carrying the
- *  `## YYYY-MM-DD` day they were filed under and the index line's link/skill/
- *  status so the dashboard can render them clickable. */
+const REPORT_CATEGORIES = ['briefings', 'plans', 'radar'] as const;
+const REPORT_FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?/;
+
+/** Category segment from an href like `reports/plans/2026-…md` → `plans`. */
+const categoryFromHref = (href: string): string => href.split('/')[1] ?? '';
+
+/** Display title for an orphan report file (one written outside report_write,
+ *  e.g. a plan-mode export): frontmatter `title:`, else the first H1, else the
+ *  filename. */
+const orphanReportTitle = (body: string, fileName: string): string => {
+  const frontmatter = body.match(REPORT_FRONTMATTER_RE)?.[1];
+  const fmTitle = frontmatter?.match(/^title:\s*(.+)$/m)?.[1]?.trim().replace(/^["']|["']$/g, '');
+  if (fmTitle) return fmTitle;
+  const h1 = body.replace(REPORT_FRONTMATTER_RE, '').match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return h1 ?? fileName.replace(MARKDOWN_RE, '');
+};
+
+/** Report entries for the dashboard, newest first. Two sources merged:
+ *  1. `reports/index.md` — the authoritative, curated log (title/skill/status)
+ *     written by `report_write`.
+ *  2. A disk sweep of each category folder for files NOT in the index — chiefly
+ *     plans saved by the harness's plan-mode export, which never touch the
+ *     index. Without (2) those plans never surface on the Reports page. */
 const collectReports = (): ReportRef[] => {
+  const refs: ReportRef[] = [];
+  const seen = new Set<string>();
+
   try {
-    const refs: ReportRef[] = [];
     let day = '';
     for (const line of readFileSync(FILES.REPORTS_INDEX, 'utf-8').split('\n')) {
       const heading = line.match(/^## (\d{4}-\d{2}-\d{2})/);
@@ -1257,20 +1299,101 @@ const collectReports = (): ReportRef[] => {
       }
       const entry = line.match(/^- (\d{2}:\d{2}) · \[([^\]]+)\](?:\(([^)]+)\))?(?: · `([^`]+)`)?(?: · (\S+))?/);
       if (!entry) continue;
+      // Index links are relative to reports/; the dashboard sits at <HOME>.
+      const href = entry[3] ? `reports/${entry[3]}` : '';
+      if (href) seen.add(href);
       refs.push({
         date: day,
         time: entry[1],
         title: entry[2],
-        // Index links are relative to reports/; the dashboard sits at <HOME>.
-        href: entry[3] ? `reports/${entry[3]}` : '',
+        href,
         skill: entry[4] ?? '',
-        status: entry[5] ?? ''
+        status: entry[5] ?? '',
+        category: categoryFromHref(href)
       });
     }
-    return refs;
   } catch {
-    return [];
+    // No index yet — the disk sweep below still surfaces any orphan files.
   }
+
+  for (const category of REPORT_CATEGORIES) {
+    const dir = resolve(FOLDERS.REPORTS, category);
+    for (const fileName of listMarkdown(dir)) {
+      const href = `reports/${category}/${fileName}`;
+      if (seen.has(href)) continue;
+      seen.add(href);
+      const full = resolve(dir, fileName);
+      let body = '';
+      try {
+        body = readFileSync(full, 'utf-8');
+      } catch {
+        continue;
+      }
+      const stamp = fileName.match(/^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})/);
+      const mtime = stamp ? null : safeMtime(full);
+      refs.push({
+        date: stamp?.[1] ?? todayDate(mtime ?? new Date(0)),
+        time: stamp ? `${stamp[2]}:${stamp[3]}` : nowTime(mtime ?? new Date(0)),
+        title: orphanReportTitle(body, fileName),
+        href,
+        skill: '',
+        status: '',
+        category
+      });
+    }
+  }
+
+  return refs.sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+};
+
+const safeMtime = (path: string): Date => {
+  try {
+    return statSync(path).mtime;
+  } catch {
+    return new Date(0);
+  }
+};
+
+/** Read the newest radar report's body and render it to HTML for the Sessions
+ *  page Radar tab. `reports` must be newest-first (collectReports output). */
+const collectRadarLatest = async (reports: ReportRef[]): Promise<RadarLatest | null> => {
+  const ref = reports.find((report) => report.category === 'radar' && report.href);
+  if (!ref) return null;
+  let body = '';
+  try {
+    body = readFileSync(resolve(FOLDERS.HOME, ref.href), 'utf-8');
+  } catch {
+    return null;
+  }
+  // Lift the digest's trailing "--- *N sessions · window · scope*" footer out of
+  // the body; the dashboard renders it below its own divider, with the radar
+  // count note.
+  let footer: string | undefined;
+  const raw = body
+    .replace(REPORT_FRONTMATTER_RE, '')
+    .trim()
+    .replace(/\n*---\s*\n+\*([^\n]*)\*\s*$/, (_match, stats: string) => {
+      footer = stats.trim();
+      return '';
+    });
+  if (!raw) return null;
+  // The digest writes title / summary / resume on consecutive lines separated
+  // by single newlines, which markdown collapses into one run-on paragraph.
+  // Force a blank line after each "**N. …**" title line and before each "↳"
+  // resume line so they render as distinct blocks. Idempotent: the negative
+  // lookahead skips lines already blank-separated.
+  const markdown = raw
+    .replace(/^(\*\*\d+\..*)\n(?!\n)/gm, '$1\n\n')
+    .replace(/([^\n])\n(↳ )/g, '$1\n\n$2');
+  const { marked } = await import('marked');
+  // Wrap the resume line in a badge span so the dashboard can style it apart
+  // from the inline code that peppers the summaries.
+  const rendered = (await marked.parse(markdown)).replace(
+    /↳\s*<code>(claude --resume[^<]*)<\/code>/g,
+    '<span class="resume">↳ <code>$1</code></span>'
+  );
+  const html = await sanitizeHtml(rendered);
+  return { date: ref.date, time: ref.time, title: ref.title, href: ref.href, html, footer };
 };
 
 const TASKS_DASHBOARD = resolve(FOLDERS.PROJECTS, 'TASKS.md');
@@ -1361,7 +1484,8 @@ export const collectStatus = async (): Promise<StatusSnapshot> => {
     settings: collectSettings(),
     logs: collectLogs(),
     reports: allReports.slice(0, MAX_REPORTS),
-    reportsTotal: allReports.length
+    reportsTotal: allReports.length,
+    radarLatest: await collectRadarLatest(allReports)
   };
   return { ...base, health: computeHealth(base) };
 };

@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import type { ManifestEntry } from '@/context';
 import { BANNER_LINES, BANNER_TAG } from '@/shared/banner';
-import type { ContextGroup, ProfileSection, ProjectLoad, ReportRef, StatusSnapshot, TaskRef } from './collect';
+import type { ContextGroup, ProfileSection, ProjectLoad, RadarLatest, ReportRef, StatusSnapshot, TaskRef } from './collect';
 import { humanBytes, relTime, shortToolName, tildifyHome, truncate } from './format';
 
 const TEMPLATE = readFileSync(new URL('dashboard.html', import.meta.url), 'utf-8');
@@ -214,9 +214,42 @@ const taskGroup = (title: string, refs: TaskRef[], snap: StatusSnapshot, options
 
 const reportRow = (report: ReportRef, snap: StatusSnapshot): string => {
   const title = report.href ? mdLink(snap, report.href, report.title) : esc(report.title);
-  return `<div class="row" data-row><span class="dim" style="flex:none">${esc(report.time)}</span><span style="flex:none">${esc(
+  // Skill chip when there is one (briefings, radar); fall back to the category
+  // so chip-less rows (plan-mode exports have no skill) still carry a tag.
+  const chip = report.skill ? projChip(report.skill) : report.category ? projChip(report.category) : '';
+  return `<div class="row" data-row data-cat="${esc(report.category)}"><span class="dim" style="flex:none">${esc(report.time)}</span><span style="flex:none">${esc(
     report.status
-  )}</span><span class="grow">${title}</span>${report.skill ? projChip(report.skill) : ''}</div>`;
+  )}</span><span class="grow">${title}</span>${chip}</div>`;
+};
+
+/** Category filter chips for the Reports page — All + one per category that
+ *  actually has reports. Each carries the same colored dot the matching row
+ *  chips use (briefings borrows the morning-briefing hue), so the filter reads
+ *  as the same vocabulary as the list. `data-catchips` wires the client filter. */
+const reportChips = (reports: ReportRef[]): string => {
+  const counts = reports.reduce<Record<string, number>>((acc, report) => {
+    if (report.category) acc[report.category] = (acc[report.category] ?? 0) + 1;
+    return acc;
+  }, {});
+  const present = REPORT_CATEGORY_ORDER.filter((category) => counts[category]);
+  if (present.length < 2) return ''; // nothing to filter between
+  const chip = (filter: string, label: string, count: number, dotKey: string, active: boolean): string => {
+    const dot = dotKey ? `<i style="background:${projectColor(dotKey)}"></i>` : '';
+    return `<button class="chip proj catchip${active ? ' active' : ''}" data-catfilter="${esc(filter)}">${dot}${esc(label)} <span class="dim">${count}</span></button>`;
+  };
+  return `<div class="chips" data-catchips>${chip('all', 'All', reports.length, '', true)}${present
+    .map((category) => chip(category, `${category[0].toUpperCase()}${category.slice(1)}`, counts[category], CATEGORY_DOT[category], false))
+    .join('')}</div>`;
+};
+
+const REPORT_CATEGORY_ORDER = ['briefings', 'plans', 'radar'] as const;
+
+/** Dot hue per category — keyed to a representative row chip so the filter and
+ *  the list share colors. Briefings uses the morning-briefing skill's hue. */
+const CATEGORY_DOT: Record<string, string> = {
+  briefings: 'morning-briefing',
+  plans: 'plans',
+  radar: 'where-am-i'
 };
 
 const pageToday = (snap: StatusSnapshot): string => {
@@ -523,19 +556,49 @@ const pageSessions = (snap: StatusSnapshot): string => {
         .join('')
     : hint('No sessions captured yet — they land here automatically as you work.');
 
+  // No section header — the History sub-tab already names it; the count rides
+  // along the bottom of the list (mirrors the Recent tab's footer note).
+  const recentFooter = conversations.length
+    ? `<div class="list-footer">${conversations.length} sessions · last 30 days</div>`
+    : '';
+  const recent = `<div data-filterbox>${filterInput('filter sessions…')}${rows}</div>${recentFooter}`;
+
+  // Volume lives above the tabs so the 7-day bar stays visible on both tabs.
   return page(
     'sessions',
     'Sessions',
     `What you and ${snap.persona.name} worked on, captured automatically.`,
-    [
-      section('Volume', 'last 7 days', volume),
-      section(
-        'Recent sessions',
-        `last 30 days · ${conversations.length} shown`,
-        `<div data-filterbox>${filterInput('filter sessions…')}${rows}</div>`
-      )
-    ].join('')
+    section('Volume', 'last 7 days', volume) +
+      subTabs([
+        { id: 'radar', label: '🛰️ Recent', body: radarTab(snap) },
+        { id: 'history', label: '🕘 History', body: recent }
+      ])
   );
+};
+
+/** Recent (radar) tab — the latest where-am-i digest rendered inline, plus a
+ *  pointer to earlier radars in the Reports log. The digest groups sessions
+ *  into cards (title + time-ago, summary, resume badge); `.radar-md` styles the
+ *  rendered markdown to match. */
+const radarTab = (snap: StatusSnapshot): string => {
+  const latest: RadarLatest | null = snap.radarLatest;
+  const plugin = snap.runtime.pluginName;
+  if (!latest) {
+    return hint(`No radar captured yet — run /${plugin}:where-am-i (or a sync) to snapshot your sessions.`);
+  }
+  const radarCount = snap.reports.filter((report) => report.category === 'radar').length;
+  // Footer below the divider: the digest's stats line, then the radar-count note.
+  const footerLines = [
+    latest.footer ? esc(latest.footer) : '',
+    radarCount > 1
+      ? `${radarCount} radars on record — earlier ones live in the <span class="navlink" data-nav="reports">Reports</span> page under the Radar filter.`
+      : ''
+  ].filter(Boolean);
+  const more = footerLines.length ? `<div class="radar-more">${footerLines.join('<br>')}</div>` : '';
+  // Build the header by hand: section()'s `right` is esc()'d, which would print
+  // the open-link's raw HTML, so the link can't go through it.
+  const meta = `<span class="right">${esc(`${latest.date} ${latest.time}`)} · ${mdLink(snap, latest.href, 'open')}</span>`;
+  return `<div class="section"><h2>Latest radar<i></i>${meta}</h2><div class="radar-md">${latest.html}</div></div>${more}`;
 };
 
 const pageBrain = (snap: StatusSnapshot): string => {
@@ -682,8 +745,8 @@ const pageReports = (snap: StatusSnapshot): string => {
     'Reports',
     `Briefings, plans, and audits ${snap.persona.name} has produced. Click any title to open it.`,
     snap.reports.length
-      ? `<div data-filterbox>${filterInput('filter reports…')}${groups}</div>${note}`
-      : hint('No reports yet — briefings and plans will land here.')
+      ? `<div data-filterbox>${filterInput('filter reports…')}${reportChips(snap.reports)}${groups}</div>${note}`
+      : hint('No reports yet — briefings, plans, and radars will land here.')
   );
 };
 

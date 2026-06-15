@@ -234,10 +234,12 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       title: 'Morning brief',
       href: 'reports/briefings/2026-06-11-0904-morning.md',
       skill: 'morning-briefing',
-      status: '🟠'
+      status: '🟠',
+      category: 'briefings'
     }
   ],
   reportsTotal: 12,
+  radarLatest: null,
   health: { overdue: 0, pendingCompiles: 0, logErrors: 0, missingImports: 0, ok: true },
   ...overrides
 });
