@@ -2,7 +2,7 @@
 name: sync
 description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention, optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 disable-model-invocation: true
-allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__report_write, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__report_write, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__perplexity_search, Skill(agent-kevin:where-am-i), Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Sync
@@ -112,21 +112,16 @@ To run a sync with no briefing at all, say so explicitly (e.g. "sync only").
 
 ### 9. Session radar
 
-Run the [where-am-i](../where-am-i/SKILL.md) protocol — a snapshot of the Claude Code
-sessions from the last 24h scoped to this HOME, so the sync run leaves behind a dated
-record of which threads were live and where each stood. Inline form:
-
-1. `bun "$CLAUDE_PLUGIN_ROOT/skills/where-am-i/scripts/list_sessions.ts" --hours 24`
-2. Write the per-session summaries per where-am-i's Step 2 (substantive paragraphs, not
-   fragments; read the transcript tail if a snippet is too thin) and render the digest
-   per its Step 3.
-3. Persist it via where-am-i's Step 4 (`report_write` with `category: 'radar'`,
-   `slug: 'where-am-i'`, `skill: 'where-am-i'`). Skip only if zero sessions returned.
+Invoke the [where-am-i](../where-am-i/SKILL.md) skill (via the Skill tool, default 24h
+window) — a snapshot of the Claude Code sessions scoped to this HOME, so the sync run
+leaves behind a dated record of which threads were live and where each stood. It owns
+the radar end to end: scans the sessions, writes the per-session summaries, renders the
+digest, and persists the report (`category: 'radar'`). Skip only if it reports zero
+sessions. Don't reimplement its steps inline — `where-am-i` is the single source of truth.
 
 Independent of the wiki state, so order doesn't matter for correctness — placed here so
 the radar report lands in `reports/index.md` before step 10's dashboard render picks it
-up. The standalone `where-am-i` skill stays the canonical entry point; this step just
-folds it into the one-pass refresh.
+up.
 
 ### 10. Regenerate the dashboards (last)
 

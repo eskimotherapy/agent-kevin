@@ -1,7 +1,6 @@
 ---
 name: where-am-i
 description: Show the Claude Code sessions from the last 24 hours scoped to the folder Kevin runs from (the HOME and everything beneath it), with a substantive summary of what each was about, where it left off, and the resume command. Use whenever the operator asks "where am I", "what sessions are running", "what was I working on", "which sessions are open", "I'm lost / overwhelmed", "what did I leave off on", or wants to find/resume a recent session. Also useful at the start of a day or after a break to re-orient. Accepts an optional hours window (e.g. "/agent-kevin:where-am-i 48") and "all" to include every project on the machine.
-disable-model-invocation: true
 allowed-tools: Bash, Read, mcp__plugin_agent-kevin_kevin__report_write
 ---
 
@@ -15,7 +14,7 @@ which thread is which and where it stands.
 ## Step 1 — gather
 
 ```bash
-bun "$CLAUDE_PLUGIN_ROOT/skills/where-am-i/scripts/list_sessions.ts" --hours 24
+bun "${CLAUDE_SKILL_DIR}/scripts/list_sessions.ts" --hours 24
 ```
 
 - Default window is 24 hours; if the user gave a number (e.g. `/agent-kevin:where-am-i 48`),

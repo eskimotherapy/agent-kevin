@@ -28,7 +28,7 @@ This isn't a chat wrapper. It's an **operating system for personal AI**:
 - A 20-skill library covering onboarding, project lifecycle, daily/weekly/monthly cadences, trip planning, and read-only SEO auditing.
 - A knowledge pipeline that turns every conversation into structured, queryable memory.
 - A skill-pack system for opt-in capabilities (SEO, Browser) and an install-on-demand bridge to community skill libraries via [skills.sh](https://skills.sh).
-- All bundled behaviour is `disable-model-invocation: true`. Kevin only acts when you ask, never spontaneously.
+- Bundled behaviour is `disable-model-invocation: true` — Kevin only acts when you ask, never spontaneously. The exceptions are two read-only orientation skills, `dashboard` (refresh the mission-control page) and `where-am-i` (session radar), which Kevin can run on its own when you ask to see the big picture or where you left off; neither mutates knowledge or task state.
 
 > *Kevin is named after the loyal minion. Helpful, enthusiastic, a little nerdy.*
 
