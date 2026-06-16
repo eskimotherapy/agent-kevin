@@ -873,7 +873,7 @@ const collectSettings = (): StatusSnapshot['settings'] => {
 const LEVEL_RE = /^\S+Z (WARN|ERROR) /;
 
 /** Bytes of app.log surfaced in the System → Logs tab. */
-const LOG_TAIL_BYTES = 24_000;
+const LOG_TAIL_BYTES = 100_000;
 
 const collectLogs = (): StatusSnapshot['logs'] => {
   const path = resolve(FOLDERS.LOGS, 'app.log');

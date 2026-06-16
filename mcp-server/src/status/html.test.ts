@@ -379,7 +379,8 @@ describe('renderDashboardHtml', () => {
             '2026-06-11T01:00:00Z INFO [system] booted',
             '2026-06-11T01:00:01Z WARN [system] slow',
             '2026-06-11T01:00:02Z ERROR [system] boom',
-            '    at stack continuation'
+            '    at stack continuation',
+            '' // trailing newline from the log file
           ].join('\n')
         }
       })
@@ -390,6 +391,12 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('class="logline lvl-error" data-row data-cat="error"');
     // continuation line inherits the preceding ERROR level
     expect(html).toContain('class="logline lvl-error" data-row data-cat="error">    at stack continuation');
+    // newest entry first: the latest ERROR renders above the earliest INFO
+    expect(html.indexOf('boom')).toBeLessThan(html.indexOf('booted'));
+    // but a stack trace stays beneath the message it belongs to
+    expect(html.indexOf('boom')).toBeLessThan(html.indexOf('at stack continuation'));
+    // the trailing newline must not render as a blank row atop the newest entry
+    expect(html).not.toContain('>&nbsp;</div>');
   });
 
   test('escapes snapshot-derived strings everywhere they render', () => {

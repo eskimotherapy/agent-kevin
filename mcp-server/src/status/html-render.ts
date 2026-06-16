@@ -1203,20 +1203,28 @@ const TAIL_LEVEL_RE = /^\S+Z (\w+) /;
 /** Renders the log tail as per-line rows wired into the shared filterbox: each
  *  line carries its level so the All/Warn/Error chips hide entries accordingly.
  *  Continuation lines (no timestamp, e.g. stack traces) inherit the preceding
- *  entry's level so they hide and color with it. */
+ *  entry's level so they hide and color with it. Entries are emitted newest
+ *  first, but lines within an entry keep reading order so a stack trace stays
+ *  beneath the message it belongs to. */
 const logTail = (tail: string): string => {
   let level = 'info';
   let entries = 0;
   const counts = { warn: 0, error: 0 };
-  const rows = tail.split('\n').map((line) => {
+  const groups: string[][] = [];
+  // trimEnd drops the file's trailing newline, which would otherwise become an
+  // empty row sitting atop the newest entry once the groups are reversed.
+  tail.trimEnd().split('\n').forEach((line) => {
     const matched = line.match(TAIL_LEVEL_RE)?.[1];
     if (matched) {
       level = matched === 'WARN' ? 'warn' : matched === 'ERROR' ? 'error' : 'info';
       entries += 1;
       if (level === 'warn' || level === 'error') counts[level] += 1;
+      groups.push([]);
     }
-    return `<div class="logline lvl-${level}" data-row data-cat="${level}">${esc(line) || '&nbsp;'}</div>`;
+    if (groups.length === 0) groups.push([]);
+    groups[groups.length - 1].push(`<div class="logline lvl-${level}" data-row data-cat="${level}">${esc(line) || '&nbsp;'}</div>`);
   });
+  const rows = groups.reverse().flat();
   const chip = (filter: string, label: string, count: number | null, dot: string, active: boolean): string =>
     `<button class="chip proj catchip${active ? ' active' : ''}" data-catfilter="${esc(filter)}">${
       dot ? `<i style="background:${dot}"></i>` : ''
