@@ -37,9 +37,10 @@ Call `mcp__plugin_agent-kevin_kevin__setup_worktree` with:
 
 - `repoPath` — absolute path to the repo's main checkout (from Step 0).
 - `branch` — a short, descriptive branch name from what the user is doing; ask only if genuinely
-  ambiguous. A bare name (no `/`) is namespaced under the operator (e.g. `my-thing` →
-  `basem/my-thing`, derived from git identity); pass an already-namespaced name (contains `/`) to
-  keep it verbatim. An existing branch is checked out as-is.
+  ambiguous. **Do not add a type prefix** (`feat/`, `chore/`, `test/`); the operator's name is the
+  branch folder. The name is always namespaced under the operator (e.g. `my-thing` →
+  `basem/my-thing`, derived from git identity); a name already under that namespace is kept as-is.
+  An existing branch is checked out as-is.
 - `baseBranch` (optional) — explicit branch/ref to start the new branch from. Defaults to the first
   of `dev` → `develop` → `main` → `master` that exists locally, falling back to the main checkout's
   current branch.

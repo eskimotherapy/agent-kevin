@@ -55,8 +55,8 @@ export interface StepResult {
 export interface SetupWorktreeOptions {
   /** Absolute path to the MAIN checkout of the repo the worktree is for. */
   repoPath: string;
-  /** Branch name; created with -b, or checked out if it already exists. A bare name (no "/") is
-   *  namespaced under the operator (e.g. `basem/<name>`); a name with "/" is kept verbatim. */
+  /** Branch name; created with -b, or checked out if it already exists. Always namespaced under the
+   *  operator (e.g. `basem/<name>`) unless it's already under that namespace. */
   branch: string;
   /** Explicit branch/ref to start the new branch from. Overrides the dev→develop→main→master→HEAD
    *  auto-detection. Must resolve in the repo. Ignored when the target branch already exists. */
@@ -218,11 +218,13 @@ export const setupWorktree = ({ repoPath, branch, baseBranch: baseBranchOverride
   }
   const mainCheckout = resolve(firstLine.slice('worktree '.length).trim());
 
-  // Branch-folder convention: namespace a bare branch name under the operator (e.g. basem/<name>),
-  // derived from git identity. A name that already contains "/" is kept verbatim; with no identity
-  // configured, fall back to the bare name (no folder).
+  // Branch-folder convention: the operator's name is ALWAYS the top folder (e.g. basem/<name>),
+  // derived from git identity. Kept verbatim only if it's already under that namespace (avoids
+  // basem/basem/...) — so a type-prefixed name like `feat/x` still nests to `basem/feat/x` rather
+  // than escaping the operator folder. With no identity configured, fall back to the bare name.
   const namespace = branchNamespace(mainCheckout);
-  const finalBranch = branch.includes('/') || !namespace ? branch : `${namespace}/${branch}`;
+  const finalBranch =
+    !namespace || branch === namespace || branch.startsWith(`${namespace}/`) ? branch : `${namespace}/${branch}`;
 
   const featureSlug = slug ?? finalBranch.split('/').pop() ?? finalBranch;
   if (!SLUG_RE.test(featureSlug)) {

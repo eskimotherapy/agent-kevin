@@ -22,7 +22,7 @@ export const tools: ToolDef[] = [
         .describe('Absolute path to the MAIN checkout of the repo the worktree is for (the skill resolves which repo).'),
       branch: z
         .string()
-        .describe('Branch name. A bare name (no "/") is namespaced under the operator (e.g. "basem/my-thing"); a name containing "/" is used verbatim. Created with -b; if it already exists, it is checked out instead.'),
+        .describe('Branch name — pass a short, descriptive name WITHOUT a type prefix (no "feat/", "chore/", "test/"). It is always namespaced under the operator (e.g. "my-thing" → "basem/my-thing"); a name already under that namespace is kept as-is. Created with -b; if it already exists, it is checked out instead.'),
       baseBranch: z
         .string()
         .optional()
