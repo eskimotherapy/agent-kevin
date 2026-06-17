@@ -43,20 +43,24 @@ Every candidate for `🌐 Signals` / `📰 News` must clear **both** gates. If n
 - **Status verbs in `🏗️ Projects` must reflect what you observed in raw sessions + git + filesystem, not stale memory threads.**
 - **Cheeky one-liner fallback** — if `closed today = 0` AND no raw session today AND no project artifacts modified today AND no commits today, skip the full structure and respond with a single dry/funny line acknowledging the empty day. Don't pad with yesterday's news.
 
-## Header — date + Hijri
+## Header — date (+ Hijri only if relevant)
 
-Format the header as `🌅 Morning Brief · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`.
+Base header is plain Gregorian: `🌅 Morning Brief · <weekday> <Mon DD>`.
 
-To compute Hijri date: prefer a one-shot conversion. Try in order:
-1. `python3 -c "from hijri_converter import Gregorian; d=Gregorian.today().to_hijri(); print(f'{d.day} {d.month_name()} {d.year}')"` (if the package is installed)
-2. `python3 -c "import datetime, sys; ..."` with the standard Umm al-Qura table if available
-3. Fall back to the most recent Hijri reference in `<HOME>/knowledge/memory/index.md` + day offset (lunar months alternate 29/30 days, accurate ±1 day).
-4. If still unknown, omit the Hijri half and ship the Gregorian header alone — don't guess.
+**Append the Hijri date only when the operator follows the Islamic calendar — don't add it blindly for everyone.** Check for a faith/observance signal in `USER.md` (already in context) and `knowledge/user/profile.md` (the Faith field — read it once): Muslim, Islam, halal, Ramadan, prayer times, mosque, Hijri, and the like. If a signal is present, extend the header to `🌅 Morning Brief · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`. If there's no signal, ship the plain Gregorian header and skip the rest of this section.
+
+When including it, compute the Hijri date with this one-shot TypeScript conversion. Bun's bundled ICU provides the Umm al-Qura calendar (`islamic-umalqura`) directly — no dependency, no Python:
+
+```bash
+bun -e 'const tz="<USER_TZ>";const p=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{day:"numeric",month:"long",year:"numeric",timeZone:tz}).formatToParts(new Date());const g=(t)=>p.find((x)=>x.type===t).value;console.log(`${g("day")} ${g("month")} ${g("year")}`)'
+```
+
+Substitute `<USER_TZ>` with the operator's IANA timezone from `USER.md` (e.g. `Asia/Kuala_Lumpur`); drop the `timeZone` field entirely if it's unknown. If the command fails for any reason, fall back to the most recent Hijri reference in `<HOME>/knowledge/memory/index.md` + day offset (lunar months alternate 29/30 days, ±1 day), and if still unknown omit the Hijri half and ship the Gregorian header alone — don't guess.
 
 ## Compose
 
 ```
-🌅 Morning Brief · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>
+🌅 Morning Brief · <weekday> <Mon DD>[ · <D> <Hijri month> <YYYY> — only if operator follows the Islamic calendar]
 
 🎯 Today
   • <task-id> <P-level> — <crisp "why now"; deadline, dependency unlock, or fresh blocker>

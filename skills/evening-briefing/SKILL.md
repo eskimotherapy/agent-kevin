@@ -27,14 +27,24 @@ Close the day cleanly. Show what landed, name what didn't, flag what'll bite tom
 - **Surface artifacts in `📦 Drafted` even when no task closed.** New files / inbox captures / PRs / decisions in raw sessions count.
 - **`✅ Shipped` is only landings.** PRs merged, tasks closed, deploys live, decisions locked. In-flight work goes in `🚧 Still in motion`, not here.
 
-## Header — date + Hijri
+## Header — date (+ Hijri only if relevant)
 
-Format: `🌙 Evening Wrap · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`. Compute Hijri the same way as the morning brief (`python3 hijri-converter` if available, else most recent Hijri reference in memory + day offset, else omit).
+Base header is plain Gregorian: `🌙 Evening Wrap · <weekday> <Mon DD>`.
+
+**Append the Hijri date only when the operator follows the Islamic calendar — don't add it blindly for everyone.** Check for a faith/observance signal in `USER.md` (already in context) and `knowledge/user/profile.md` (the Faith field — read it once): Muslim, Islam, halal, Ramadan, prayer times, mosque, Hijri, and the like. If a signal is present, extend the header to `🌙 Evening Wrap · <weekday> <Mon DD>[ · <D> <Hijri month> <YYYY> — only if operator follows the Islamic calendar]`; otherwise ship the plain Gregorian header.
+
+When including it, compute the Hijri date with this one-shot TypeScript conversion (Bun's bundled ICU provides the Umm al-Qura calendar — no dependency, no Python):
+
+```bash
+bun -e 'const tz="<USER_TZ>";const p=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{day:"numeric",month:"long",year:"numeric",timeZone:tz}).formatToParts(new Date());const g=(t)=>p.find((x)=>x.type===t).value;console.log(`${g("day")} ${g("month")} ${g("year")}`)'
+```
+
+Substitute `<USER_TZ>` with the operator's IANA timezone from `USER.md`; drop the `timeZone` field if unknown. On failure, fall back to the most recent Hijri reference in `<HOME>/knowledge/memory/index.md` + day offset (±1 day), else omit the Hijri half — don't guess.
 
 ## Compose
 
 ```
-🌙 Evening Wrap · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>
+🌙 Evening Wrap · <weekday> <Mon DD>[ · <D> <Hijri month> <YYYY> — only if operator follows the Islamic calendar]
 
 ✅ Shipped
   • <task-id or commit hash> — <what landed; merged / closed / deployed / decided>
@@ -75,7 +85,7 @@ Format: `🌙 Evening Wrap · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>`. C
 When all four signals are zero (no closures, no commits, no raw session, no project artifact mtimes today):
 
 ```
-🌙 Evening Wrap · <weekday> <Mon DD> · <D> <Hijri month> <YYYY>
+🌙 Evening Wrap · <weekday> <Mon DD>[ · <D> <Hijri month> <YYYY> — only if operator follows the Islamic calendar]
 
 <single dry one-liner — e.g., "Quiet one. Nothing shipped, nothing broke, nothing on fire. See you tomorrow." Vary the line each time. No bullets.>
 
