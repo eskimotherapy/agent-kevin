@@ -16,6 +16,7 @@
  */
 
 import { FOLDERS } from '@/config';
+import { withBrowserLaunch } from '@/shared/browser-deps';
 import { htmlToMarkdown, renderExtracted } from '@/shared/html-to-markdown';
 import { log } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
@@ -91,6 +92,9 @@ async function getChromium(): Promise<ChromiumLike> {
   }
   return chromium;
 }
+
+const launchChromium = (chromium: ChromiumLike): Promise<Awaited<ReturnType<ChromiumLike['launch']>>> =>
+  withBrowserLaunch(() => chromium.launch({ headless: true }));
 
 function captureFilename(action: string, ext: string, name?: string): string {
   mkdirSync(CAPTURES_DIR, { recursive: true });
@@ -254,7 +258,7 @@ export const tools: ToolDef[] = [
       const chromium = await getChromium();
       const target = normalizeInput(input);
       const outPath = captureFilename('screenshot', 'png', name);
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launchChromium(chromium);
       try {
         const context = await browser.newContext();
         const page = await context.newPage();
@@ -278,7 +282,7 @@ export const tools: ToolDef[] = [
       const chromium = await getChromium();
       const target = normalizeInput(input);
       const outPath = captureFilename('pdf', 'pdf', name);
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launchChromium(chromium);
       try {
         const context = await browser.newContext();
         const page = await context.newPage();
@@ -307,7 +311,7 @@ export const tools: ToolDef[] = [
       const chromium = await getChromium();
       const target = normalizeInput(input);
       const outPath = captureFilename('markdown', 'md', name);
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launchChromium(chromium);
       try {
         const context = await browser.newContext();
         const page = await context.newPage();
@@ -347,7 +351,7 @@ export const tools: ToolDef[] = [
     handler: async ({ input, steps, name, viewport }) => {
       const chromium = await getChromium();
       mkdirSync(CAPTURES_DIR, { recursive: true });
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launchChromium(chromium);
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       const videoDir = resolve(CAPTURES_DIR, `${stamp}-${name ?? 'record'}-tmp`);
       mkdirSync(videoDir, { recursive: true });

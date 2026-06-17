@@ -198,6 +198,14 @@ Playwright isn't on the path — finish the plugin's initial install:
 If chromium download fails (macOS sandbox/XPC walls), run that command in a normal terminal outside Claude Code.
 ```
 
+**Linux / WSL2 only — install the system libraries.** The chromium *binary* downloads fine, but on a fresh Linux distro (including WSL2) it links against system shared libs (`libnss3`, `libgbm1`, `libasound2`, …) that aren't installed by default and don't ship with the OS the way they do on macOS. Without them the binary is present but `chromium.launch()` fails at runtime with a missing-`.so` error. This step can't run in postinstall (it needs `sudo`), so on `wsl`/`linux` homes tell the user to run it once:
+
+```
+sudo ${CLAUDE_PLUGIN_ROOT}/mcp-server/node_modules/.bin/playwright install-deps chromium
+```
+
+(Skip this on macOS — the libraries are part of the OS there.)
+
 After both pieces processed, print Browser pack summary.
 
 ---

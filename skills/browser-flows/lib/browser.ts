@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import { BROWSER } from '../../../mcp-server/src/config';
+import { withBrowserLaunch } from '../../../mcp-server/src/shared/browser-deps';
 
 /**
  * Portable browser harness for the browser-flows skill — no flow-specific coupling. Drives a
@@ -55,11 +56,14 @@ export const launch = async (target: Target, flowName: string, options: { headle
   const shotsDir = ensureDir(join(CAPTURES_ROOT, target.name, flowName, runStamp));
   log(`screenshots → ${shotsDir}${headless ? ' (headless)' : ''}`);
 
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless,
-    viewport: headless ? { width: 1280, height: 900 } : null,
-    args: [...BROWSER.INTERACTIVE_ARGS]
-  });
+  const context = await withBrowserLaunch(() =>
+    chromium.launchPersistentContext(userDataDir, {
+      headless,
+      viewport: headless ? { width: 1280, height: 900 } : null,
+      permissions: ['clipboard-read', 'clipboard-write'],
+      args: [...BROWSER.INTERACTIVE_ARGS]
+    })
+  );
 
   const page = context.pages()[0] ?? (await context.newPage());
   return { context, page, shotsDir, headless };
