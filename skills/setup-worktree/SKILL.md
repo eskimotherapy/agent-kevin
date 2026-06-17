@@ -1,7 +1,7 @@
 ---
 name: setup-worktree
-description: Create a git worktree for parallel agent work and bootstrap it so it's ready to code — copies the gitignored local files (`.env*`, `.claude/settings.local.json`, `.cursor`, `.cmux`) from the main checkout, installs dependencies, and builds the packages. Use whenever the user asks to spin up a worktree, work on a branch in parallel, set up an isolated checkout for another agent, or "make a worktree for <feature>". First pins down WHICH repo the worktree is for (the user's words, the current repo, or by asking when a HOME holds several repos), then creates the worktree as a sibling of that repo, never nested inside it.
-allowed-tools: mcp__plugin_agent-kevin_kevin__setup_worktree, Bash, Read
+description: Create a git worktree for parallel agent work and bootstrap it so it's ready to code — copies the gitignored local files (`.env*`, `.claude/settings.local.json`, `.cursor`, `.cmux`) from the main checkout, installs dependencies, and builds the packages. Use whenever the user asks to spin up a worktree, work on a branch in parallel, set up an isolated checkout for another agent, or "make a worktree for <feature>". First pins down WHICH repo the worktree is for (the user's words, the `$KEVIN_CODE_PATH` default when they assume you know, or by asking when neither resolves), then creates the worktree as a sibling of that repo, never nested inside it, and offers to add it to a sibling `*.code-workspace` if one exists.
+allowed-tools: mcp__plugin_agent-kevin_kevin__setup_worktree, Bash, Read, Edit
 ---
 
 # setup-worktree — parallel checkout, ready to code
@@ -21,11 +21,16 @@ The worktree is always of one specific repo. A HOME can sit above several repos,
 which one before doing anything:
 
 1. **The user named it** ("a worktree for acme-mono", "for the agent repo", "of this repo") —
-   use that repo.
-2. **Otherwise, ask. Always.** Do not infer the repo from cwd. The agent HOME is itself almost
-   always a git repo (it versions `knowledge/` and `projects/`), so cwd being inside a git repo
-   does NOT make it the intended code repo. List the candidate code repos (e.g. the git repos
-   under `tech/`) and let the user pick. The wrong repo is an annoying cleanup.
+   use that repo. An explicit name always wins over the default below.
+2. **The user assumes you know the repo + `$KEVIN_CODE_PATH` is set** ("make me a worktree for
+   the dark-mode work", no repo named) — use `$KEVIN_CODE_PATH` as the default repo. That env var
+   is the operator's primary codebase (captured at init), so it's the repo they mean when they
+   don't say which. State which repo you picked so a wrong default gets caught before the cleanup.
+3. **Otherwise, ask. Always.** This covers an unset/empty `$KEVIN_CODE_PATH`. Do not infer the
+   repo from cwd. The agent HOME is itself almost always a git repo (it versions `knowledge/` and
+   `projects/`), so cwd being inside a git repo does NOT make it the intended code repo. List the
+   candidate code repos (e.g. the git repos under `tech/`) and let the user pick. The wrong repo
+   is an annoying cleanup.
 
 Resolve the chosen repo to the **absolute path of its main checkout**. (If you're standing in a
 worktree of it, the tool still resolves the real main checkout from `git worktree list` — but pass
@@ -58,7 +63,25 @@ packageManager, built, extraInstalled, steps }`.
 **Check `steps` for any `ok: false`** (each carries a tail of the command output) before you call
 the setup a success.
 
-## Step 2 — confirm and hand off
+## Step 2 — offer to add it to the VS Code workspace
+
+If the target repo has a VS Code workspace file alongside it (a `*.code-workspace` in the repo's
+parent dir, the sibling level where the worktree was just created), the operator likely keeps all
+their checkouts open in one window. Offer to add the new worktree to it:
+
+1. Glob the parent dir (`dirname(repoPath)`) for `*.code-workspace`. None found: skip this step,
+   no need to mention it.
+2. One or more found: ask the operator whether you should add the new worktree folder to it (name
+   the file). Only proceed on a yes.
+3. On yes, `Read` the workspace file and `Edit` a new entry into its `folders` array pointing at
+   the worktree. Paths in `folders` are relative to the workspace file's own location, so use the
+   worktree dir's basename (it's a sibling of the file). Match the existing entries' shape (a bare
+   `{ "path": "..." }`, plus a `"name"` if the others carry one). Leave every other key
+   (`settings`, `extensions`, the existing folders) untouched.
+
+This is a plain JSON edit, not the MCP tool's job: do it with `Read` + `Edit`.
+
+## Step 3 — confirm and hand off
 
 Report the `worktreePath`, `branch`, and the `baseBranch` it branched from, surface any failed
 `steps`, then point the next agent (or a cmux workspace) at it. When the branch lands, clean up
