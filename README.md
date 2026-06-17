@@ -723,7 +723,8 @@ Note: `bin/kevin` invokes the MCP server logic locally without going through Cla
 | `KEVIN_KNOWLEDGE` | Override knowledge dir | `$KEVIN_HOME/knowledge` |
 | `KEVIN_PROJECTS` | Override projects dir | `$KEVIN_HOME/projects` |
 | `KEVIN_REPORTS` | Override reports dir | `$KEVIN_HOME/reports` |
-| `KEVIN_GIT_REPOS` | Comma-separated extra git repo paths (`~`-expanded) surfaced in the SessionStart context block alongside the knowledge repo | _none_ |
+| `KEVIN_CODE_PATH` | Absolute path to your primary codebase. Lets Kevin ground code-related tasks against it and surface its git activity in session context. Optional — asked in chat at init (not a secret), or set later. | _none_ |
+| `KEVIN_GIT_REPOS` | Comma-separated extra git repo paths (`~`-expanded) surfaced in the SessionStart context block alongside the knowledge repo. Init derives it from `KEVIN_CODE_PATH`; append more later. | _derived from `KEVIN_CODE_PATH`_ |
 | `KEVIN_LOG_LEVEL` | Log level: `debug` · `info` · `warn` · `error`. Falls back to `LOG_LEVEL`. | `info` |
 | `KEVIN_LOG_FILE` | Override log file path. Set to `off` to disable file output. | `$KEVIN_HOME/.kevin/logs/app.log` |
 
@@ -731,7 +732,7 @@ Note: `bin/kevin` invokes the MCP server logic locally without going through Cla
 
 `KEVIN_KNOWLEDGE` and `KEVIN_PROJECTS` let you put those directories anywhere (e.g. iCloud, an external drive, a separate git repo). The init wizard offers this during scaffold and, if the chosen path is **outside the agent home**, automatically appends `permissions.allow` (and `sandbox.filesystem.allowWrite` where supported) entries to `<HOME>/.claude/settings.json` so Claude Code can read/write there without prompting. If you set these env vars after init, edit `settings.json` yourself.
 
-API keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`) live in `<HOME>/.claude/settings.local.json` `env` block, gitignored. The rule: **init owns universal-infra env keys; `configure-skills` owns pack-gated env keys.** Kevin has no universal-infra keys, so `/init` writes an empty `{}` — every API key above is a pack-gated key that `configure-skills` plants as an empty placeholder when you activate the matching pack. **You fill the values in your editor** — neither flow asks for them in chat, since secrets must not enter the session transcript or the Anthropic API.
+API keys (`SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`, `PERPLEXITY_API_KEY`) live in `<HOME>/.claude/settings.local.json` `env` block, gitignored. The rule: **init owns universal-infra env keys; `configure-skills` owns pack-gated env keys.** Kevin's only universal-infra keys are the optional `KEVIN_CODE_PATH` / `KEVIN_GIT_REPOS` pair — init writes them only if you give a codebase path at Step 4b (otherwise `/init` writes an empty `{}`). Every API key above is a pack-gated key that `configure-skills` plants as an empty placeholder when you activate the matching pack. **You fill the secret values in your editor** — neither flow asks for them in chat, since secrets must not enter the session transcript or the Anthropic API. (The codebase path isn't a secret, so init does ask for it in plain chat.)
 
 ---
 

@@ -134,6 +134,40 @@ Stage answers for the USER.md write.
 
 ---
 
+## Step 4b — Where your code lives (optional)
+
+If you use Kevin for coding or technical work, capturing your **primary codebase** path lets Kevin ground code-related tasks against it (bug fixes, reviews, tracing behavior) and surface its recent git activity in every session's context. Skip freely if Kevin is purely for writing, research, or planning — Kevin works fine with no codebase set.
+
+Best-effort inference — only suggest a default when it's unambiguous (exactly one git repo across the common dev roots), since a generic agent can't know which of many repos is "primary":
+
+```bash
+CODE_DEFAULT=""
+HITS=()
+for root in "$HOME/Developer" "$HOME/Code" "$HOME/code" "$HOME/Projects" "$HOME/projects" "$HOME/src" "$HOME/repos"; do
+  [ -d "$root" ] || continue
+  for dir in "$root"/*/; do
+    [ -d "${dir}.git" ] && HITS+=("$(cd "$dir" && pwd)")
+  done
+done
+[ "${#HITS[@]}" -eq 1 ] && CODE_DEFAULT="${HITS[0]}"
+```
+
+Plain chat (NOT `AskUserQuestion` — the answer is a freeform absolute path):
+
+> **Absolute path to your primary codebase?** Optional — reply `skip` if Kevin isn't for coding, or set it later in `<HOME>/.claude/settings.local.json` under `env.KEVIN_CODE_PATH`. Inferred default: `<CODE_DEFAULT>` (blank if nothing obvious found).
+
+Parse the user's next message:
+
+- `skip` (case-insensitive) → stage `KEVIN_CODE_PATH=""` and continue.
+- Otherwise → verify the path exists (`test -d "$ANSWER"`). If it doesn't, warn and re-ask once.
+
+Stage the resolved absolute path for two writes in Step 7:
+
+1. USER.md → "Where Things Live → Primary codebase" entry.
+2. `.claude/settings.local.json` → `env.KEVIN_CODE_PATH`, with `env.KEVIN_GIT_REPOS` derived to the same path so the codebase's recent git activity shows up in session context from day one.
+
+---
+
 ## Step 5 — Optional: paste any URLs about yourself
 
 Freeform multi-URL input. **Do NOT use `AskUserQuestion` here** — its `Other` text field has a fixed placeholder ("Type something") and adding a redundant "Provide URLs" option just to point at it produces a confusing UI. Ask in plain chat instead.
@@ -270,7 +304,7 @@ Write the three identity files (Kevin-unique filenames — won't collide with an
 
 - `$HOME_DIR/SOUL.md` ← staged content from Step 2
 - `$HOME_DIR/IDENTITY.md` ← staged content from Step 3
-- `$HOME_DIR/USER.md` ← rendered from Steps 4 + 6 (template below)
+- `$HOME_DIR/USER.md` ← rendered from Steps 4 + 4b + 6 (template below)
 
 Write the operating manual + Claude Code memory file. **Collision-aware**: if `$HOME_DIR/CLAUDE.md` already exists (plugin installed into an existing project), don't overwrite — write to `$HOME_DIR/CLAUDE.local.md` instead and inform the user.
 
@@ -537,6 +571,10 @@ _(Examples to pick from or replace: "Direct and technical, no preamble." / "Plai
 
 _(Anything Kevin should respect about your personal values, ethics, taboos, or hard preferences. Optional — leave empty if not applicable.)_
 
+## Where Things Live
+
+- **Primary codebase:** `<KEVIN_CODE_PATH>` (also exposed as `$KEVIN_CODE_PATH` for shell/MCP use)
+
 ## Deeper
 
 These files hold my evolving long-form knowledge. Kevin reads them on demand and updates them on compile.
@@ -547,6 +585,8 @@ These files hold my evolving long-form knowledge. Kevin reads them on demand and
 - [Career](knowledge/user/career.md)
 - [Interests](knowledge/user/interests.md)
 ```
+
+If Step 4b returned `skip`, omit the `## Where Things Live` section entirely — Kevin's a personal agent and many operators have no primary codebase, so an empty placeholder is just noise. The operator can add it later by setting `env.KEVIN_CODE_PATH` and re-running compile.
 
 `<AVATAR_LINE>` rendering:
 - If Step 5b staged a user avatar at `<KNOWLEDGE_ROOT>/user/assets/avatar.<ext>` → render `![Avatar](knowledge/user/assets/avatar.<ext>)` (path relative to `<HOME_DIR>`, since CLAUDE.md `@-imports` USER.md from there).
@@ -621,12 +661,26 @@ _(Add anything Kevin should never do — sensitive content, off-limits topics, v
 
 If Step 5 URL synthesis surfaced anything that contradicts these defaults (e.g., the user's blog reveals they prefer step-by-step walkthroughs over terse answers), append a `## Synthesized from URLs` section below the defaults rather than overwriting them — let the user resolve the conflict later.
 
-Also write `.claude/settings.local.json` so the file exists with the correct gitignored permissions from day one. **Init writes an empty scaffold** — Kevin has no universal-infra env keys, so the file ships as `{}`. Pack-gated env keys (`PERPLEXITY_API_KEY`, `SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`) are planted by `/agent-kevin:configure-skills` when the operator activates the matching pack — Step 8 inline or later standalone — via the §D ensure-placeholder helper (which creates `env` if missing). This keeps `settings.local.json` an accurate audit trail of what the operator opted into — no orphan empty slots for packs they never touched.
+Also write `.claude/settings.local.json` so the file exists with the correct gitignored permissions from day one. The only env keys init owns are the **optional** primary-codebase pair from Step 4b — and only when a path was actually captured. Pack-gated env keys (`PERPLEXITY_API_KEY`, `SERPAPI_KEY`, `OPENPAGERANK_API_KEY`, `GSC_SITE_URL`) are planted by `/agent-kevin:configure-skills` when the operator activates the matching pack — Step 8 inline or later standalone — via the §D ensure-placeholder helper (which creates `env` if missing). This keeps `settings.local.json` an accurate audit trail of what the operator opted into — no orphan empty slots for packs they never touched.
 
-The rule: **init owns env keys that are universal to every operator; configure-skills owns pack-gated env keys.** Kevin currently has zero universal-infra keys, so init's contribution is just the empty file.
+The rule: **init owns env keys that are universal to every operator; configure-skills owns pack-gated env keys.** Kevin's only universal-infra keys are the optional codebase pair, so:
 
-- **If the file does not exist:** write `{}`.
-- **If the file exists:** leave it untouched. Never overwrite operator content. configure-skills walks merge in pack-gated keys via §D when activated.
+- **Step 4b captured a real path:** write `KEVIN_CODE_PATH` and derive `KEVIN_GIT_REPOS` to the same path (it surfaces that repo's recent git activity in the SessionStart `## Recent Git Activity` block — operators can append more later, `,/path/to/other/repo`, without touching plugin code).
+
+  ```json
+  {
+    "env": {
+      "KEVIN_CODE_PATH": "<KEVIN_CODE_PATH>",
+      "KEVIN_GIT_REPOS": "<KEVIN_CODE_PATH>"
+    }
+  }
+  ```
+
+- **Step 4b returned `skip`:** write `{}` — no orphan empty keys. A code path is genuinely optional for a personal agent; the operator can add it later by editing this file.
+
+- **If the file already exists:** never overwrite existing values. Merge in the codebase pair only if (a) Step 4b captured a real path AND (b) `env.KEVIN_CODE_PATH` / `env.KEVIN_GIT_REPOS` are currently absent or the empty string. Leave all other keys untouched. configure-skills walks merge in pack-gated keys via §D when activated.
+
+We intentionally do **not** prompt for any secret values in chat (see the rule below); the codebase path is not a secret — it's captured in Step 4b's plain-chat prompt.
 
 **Never solicit values via chat** — secrets must not enter the session transcript or the Anthropic API. The session-capture hook redacts known prefixes (`pplx-…`, `sk-…`, `AIza…`, etc.) as defense-in-depth, but the safer move is to keep values off the wire entirely.
 
@@ -804,7 +858,7 @@ Blank line, then the **Next** heading (same style as Ready), then the relaunch p
 
 > 🚀 **Next**
 >
-> **Fill any env values.** Open `<HOME_DIR>/.claude/settings.local.json` in your editor. Init wrote an empty `{}` — pack-gated keys only appear after you activate the matching pack. If you ticked SEO or Browser at Step 8, the activation walk already planted their empty placeholder slots; fill the values you need:
+> **Fill any env values.** Open `<HOME_DIR>/.claude/settings.local.json` in your editor. Init wrote `KEVIN_CODE_PATH` / `KEVIN_GIT_REPOS` if you gave a codebase path at Step 4b, otherwise an empty `{}` — pack-gated keys only appear after you activate the matching pack. If you ticked SEO or Browser at Step 8, the activation walk already planted their empty placeholder slots; fill the values you need:
 >
 > - `PERPLEXITY_API_KEY` — Browser pack (sign up at https://perplexity.ai/settings/api)
 > - `SERPAPI_KEY` — SEO pack (https://serpapi.com)

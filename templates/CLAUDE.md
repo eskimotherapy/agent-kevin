@@ -30,7 +30,7 @@ Claude Code auto-loads this file from the agent home directory at session start.
 
 1. Today's date in your timezone
 2. Last session tail (most recent block of the latest session log)
-3. Recent git activity in the knowledge directory
+3. Recent git activity across the knowledge directory and any configured code repos (`KEVIN_GIT_REPOS`)
 
 ## Memory Routing
 
@@ -126,6 +126,10 @@ When writing or editing code in this project (MCP server, hooks, CLI, skills):
 - **Bun-first.** Use `bun` / `bunx` for every script, dependency, and run command. No `node`, `npm`, `npx`, `pnpm`, or `yarn` (this holds even if a global default says otherwise).
 - **Never hand-craft paths.** Build and parse them with the `node:path` / `node:url` APIs (`path.join`, `path.basename`, `path.relative`, `pathToFileURL`, `fileURLToPath`), not string concatenation or splitting on `/`. Prefer cross-platform implementations by default.
 - **macOS-first, fail loud elsewhere.** This project is primarily macOS-supported. Don't over-engineer Windows shims: where real cross-platform support would be drastic or risky, fail fast with a `TODO(windows):` marker and a clear log line instead of shipping a half-correct workaround.
+
+## Where Your Code Lives
+
+If you've set a primary codebase (`$KEVIN_CODE_PATH` — captured during `/agent-kevin:init` or set in `.claude/settings.local.json` → `env`), that's the default target whenever a task touches code: a bug fix, a feature, a review, or tracing how something works. Prefix `Read`/`Glob`/`Grep`/`Bash` paths with it rather than assuming the agent home. Its recent git activity is injected into every session (via `KEVIN_GIT_REPOS`, which init points at the same path). If no codebase is set, this doesn't apply — ignore it.
 
 ## Git Worktrees
 

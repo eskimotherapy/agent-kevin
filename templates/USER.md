@@ -19,6 +19,10 @@ _(Anything Kevin should respect about your personal values, ethics, taboos, or h
 
 - _(empty)_
 
+## Where Things Live
+
+- **Primary codebase:** `{{CODE_PATH}}` (also exposed as `$KEVIN_CODE_PATH` for shell/MCP use)
+
 ## Deeper
 
 These files hold the user's evolving long-form knowledge. Kevin reads them on demand and updates them on compile.
