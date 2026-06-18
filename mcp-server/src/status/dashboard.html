@@ -106,6 +106,10 @@ main { flex: 1; min-width: 0; padding: 30px 38px 70px; }
 
 /* ── sections ──────────────────────────────────────────────────────── */
 .section { margin: 26px 0; }
+/* Flush variant: when a section follows a filter input (radar tab), reuse the
+ *  8px that `h3.group:first-of-type` gives History's first heading so the gap
+ *  below the search bar is identical across both tabs. */
+.section.flush { margin-top: 8px; }
 .section > h2 {
   display: flex; align-items: center; gap: 12px; margin: 0 0 8px;
   color: var(--accent); font-size: 12px; font-weight: 600;
