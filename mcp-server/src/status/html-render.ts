@@ -115,6 +115,17 @@ const section = (title: string, right: string, body: string): string =>
 
 const hint = (text: string): string => `<div class="hint">${esc(text)}</div>`;
 
+/** Reusable info tooltip — a focusable ⓘ icon revealing `text` on hover/focus.
+ *  `text` supports a `backtick` → <code> subset; everything else is escaped.
+ *  Pass `end` for items near the right edge so the popup grows leftward. */
+const infoTip = (text: string, end = false): string => {
+  const body = text
+    .split('`')
+    .map((part, index) => (index % 2 === 1 ? `<code>${esc(part)}</code>` : esc(part)))
+    .join('');
+  return `<span class="tip${end ? ' tip-end' : ''}" tabindex="0" role="note"><span class="tip-i" aria-hidden="true">i</span><span class="tip-text">${body}</span></span>`;
+};
+
 const stat = (num: number | string, label: string, cls = ''): string =>
   `<div class="stat"><div class="num ${cls}">${esc(String(num))}</div><div class="lab">${esc(label)}</div></div>`;
 
@@ -960,6 +971,17 @@ const cheatsheet = (plugin: string): Array<{ when: string; say: string; what: st
   }
 ];
 
+// Per-event explanations for the Reflexes tab — these hooks are how Kevin
+// persists across sessions, so each one is worth spelling out.
+const REFLEX_TIPS: Record<string, string> = {
+  SessionStart:
+    'Fires when a session starts. Injects today’s date (with the Hijri date), the tail of your last session, today’s reports, and recent git activity — so Kevin wakes up with continuity instead of a blank slate.',
+  SessionEnd:
+    'Fires when a session ends. Captures the full transcript to `knowledge/raw/sessions/YYYY-MM-DD.md`. This is how every session is saved — later compiled into long-term memory.',
+  PreCompact:
+    'Fires just before Claude Code compacts (summarises) a long conversation. Captures the session up to that point so the part being compressed away is still preserved on disk.'
+};
+
 const pageCapabilities = (snap: StatusSnapshot): string => {
   const { skills, mcp, hooks } = snap;
 
@@ -992,10 +1014,12 @@ const pageCapabilities = (snap: StatusSnapshot): string => {
     .join('')}</div></div>`;
 
   const hookRows = hooks.entries
-    .map(
-      (entry) =>
-        `<div class="row"><span class="good nowrap" style="flex:none;min-width:120px">${esc(entry.event)}</span><span class="grow dim">${esc(entry.command)}</span></div>`
-    )
+    .map((entry) => {
+      const tip = REFLEX_TIPS[entry.event];
+      return `<div class="row"><span class="good nowrap" style="flex:none;min-width:120px">${esc(entry.event)}${
+        tip ? infoTip(tip) : ''
+      }</span><span class="grow dim">${esc(entry.command)}</span></div>`;
+    })
     .join('');
 
   // The bin CLI's HELP text, section by section (entries already carry the
@@ -1143,6 +1167,28 @@ const MANIFEST_ICON: Record<ManifestEntry['status'], { icon: string; cls: string
 /** The "what loads into every session" view — static @-imports plus the
  *  SessionStart injection. Lives on the Brain page (it's Kevin's context),
  *  surfaced here as a standalone builder so pageBrain can mount it. */
+// Explanations for the load-bearing index files in the Context tab — the few
+// that aren't self-explanatory from their filename. Matched by label suffix.
+const CONTEXT_TIPS: Array<{ match: string; text: string }> = [
+  {
+    match: 'knowledge/index.md',
+    text: 'The master catalog — a table of contents for the whole knowledge base. It lists every permanent article with a one-line description, so Kevin can find and load just what it needs on demand instead of pulling the entire brain into context every session.'
+  },
+  {
+    match: 'knowledge/memory/index.md',
+    text: 'Kevin’s long-term memory: active threads, recent decisions, learnings, and key context distilled from past sessions during compile (the “dreaming” step). Loaded every session so Kevin wakes up knowing where things stand.'
+  },
+  {
+    match: 'TASKS.md',
+    text: 'A high-level overview of every task across projects — priorities, what’s overdue, what’s being worked on right now. A distilled snapshot, not the full per-task detail, so Kevin sees the lay of the land without loading every task file.'
+  }
+];
+
+const contextTipFor = (label: string): string => {
+  const tip = CONTEXT_TIPS.find((entry) => label.endsWith(entry.match));
+  return tip ? infoTip(tip.text) : '';
+};
+
 const buildContextBody = (snap: StatusSnapshot): string => {
   const { context } = snap;
 
@@ -1174,7 +1220,7 @@ const buildContextBody = (snap: StatusSnapshot): string => {
     return [
       [
         item.present ? '<span class="good">✓</span>' : '<span class="bad" data-issue>✗</span>',
-        item.present ? mdLink(snap, item.label, item.label, 'plink') : esc(item.label),
+        `${item.present ? mdLink(snap, item.label, item.label, 'plink') : esc(item.label)}${contextTipFor(item.label)}`,
         `<span class="dim">${esc(humanBytes(item.bytes))}</span>`
       ]
     ];
@@ -1242,14 +1288,37 @@ const logTail = (tail: string): string => {
   return `<div data-filterbox>${chips}<pre class="logtail">${rows.join('')}</pre></div>`;
 };
 
+// Explanations for Kevin's own env vars + the harness knobs init seeds — shown
+// as an info tooltip beside the key in the Environment table.
+const ENV_KEY_TIPS: Record<string, string> = {
+  KEVIN_HOME:
+    'Kevin’s home directory — the root of the knowledge tree, projects, and reports. The MCP server resolves every path from here. Defaults to the directory you launch Claude from; set this in `~/.claude/settings.json` if you ever start Claude from elsewhere, so paths don’t silently resolve to the wrong place.',
+  CLAUDE_CODE_NO_FLICKER:
+    'Renders the prompt without the flicker-prone redraw. Upside: you can click anywhere in the prompt input box to move the cursor. Trade-off: to highlight/select text in Claude’s responses you have to hold Shift while dragging.',
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:
+    'Turns off non-essential network traffic (telemetry, auto-update pings, etc.) — keeps Claude Code quiet on the wire.',
+  ANTHROPIC_DEFAULT_HAIKU_MODEL:
+    'Remaps the lightweight “Haiku” tier the harness uses for small background tasks to a more capable model, so quick auxiliary calls aren’t under-powered.',
+  KEVIN_CODE_PATH: 'Absolute path to your primary codebase. Used by the setup-worktree skill and exposed as `$KEVIN_CODE_PATH`.',
+  KEVIN_GIT_REPOS:
+    'Comma-separated repo paths whose recent git activity shows up in the SessionStart briefing. Defaults to `KEVIN_CODE_PATH`; append more with `,/path/to/other/repo`.',
+  KEVIN_KNOWLEDGE: 'Override for where the `knowledge/` tree lives, if you keep it outside the home directory.',
+  KEVIN_PROJECTS: 'Override for where the `projects/` tree lives, if you keep it outside the home directory.'
+};
+
 const pageSystem = (snap: StatusSnapshot): string => {
   const { settings, logs } = snap;
 
   // Path-valued env vars (KEVIN_HOME etc.) become Finder links; masked
-  // secrets and plain values render as text.
+  // secrets and plain values render as text; an empty value (e.g. KEVIN_HOME
+  // when unset) shows a dim "not set". Known keys carry an info tooltip.
   const envRows = settings.env.map((entry) => [
-    `<span class="nowrap">${esc(entry.key)}</span>`,
-    /^~?\//.test(entry.value) ? pathLink(entry.value) : esc(tildifyHome(entry.value)),
+    `<span class="nowrap">${esc(entry.key)}</span>${ENV_KEY_TIPS[entry.key] ? infoTip(ENV_KEY_TIPS[entry.key]) : ''}`,
+    entry.value === ''
+      ? '<span class="dim">not set</span>'
+      : /^~?\//.test(entry.value)
+        ? pathLink(entry.value)
+        : esc(tildifyHome(entry.value)),
     `<span class="dim">${esc(entry.scope)}</span>`
   ]);
   // One row per settings layer, so the user/project/local scopes and what

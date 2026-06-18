@@ -379,6 +379,35 @@ kbd {
   color: var(--dim); font-size: 12px;
 }
 
+/* ── info tooltip (reusable) ───────────────────────────────────────────
+   `infoTip()` in html-render.ts emits .tip; hover or keyboard-focus reveals
+   the popup. CSS-only — no JS, no external requests. */
+.tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; cursor: help; }
+.tip-i {
+  width: 14px; height: 14px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 50%;
+  color: var(--dim); font-size: 9px; font-style: normal; font-weight: 600; line-height: 1;
+}
+.tip:hover .tip-i, .tip:focus-visible .tip-i, .tip:focus-within .tip-i { color: var(--accent); border-color: var(--accent); }
+.tip:focus { outline: none; }
+.tip-text {
+  position: absolute; left: 0; top: calc(100% + 7px); z-index: 40;
+  width: max-content; max-width: 320px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  /* Reset inherited heading styles so the text reads normally even when the
+     tip sits inside an uppercase, letter-spaced section header. */
+  color: var(--text); font-size: 12px; font-weight: normal; line-height: 1.5;
+  text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
+  opacity: 0; visibility: hidden; transform: translateY(-3px); pointer-events: none;
+  transition: opacity 0.12s, transform 0.12s, visibility 0.12s;
+}
+.tip-text code { background: var(--side); border-radius: 4px; padding: 1px 5px; font-size: 11px; color: var(--cyan); }
+.tip:hover .tip-text, .tip:focus .tip-text, .tip:focus-within .tip-text { opacity: 1; visibility: visible; transform: translateY(0); }
+/* Right-edge tips: flip the popup to grow leftward so it never clips off-screen. */
+.tip.tip-end .tip-text { left: auto; right: 0; }
+
 @media (max-width: 760px) {
   body { flex-direction: column; }
   aside { width: 100%; height: auto; position: static; }

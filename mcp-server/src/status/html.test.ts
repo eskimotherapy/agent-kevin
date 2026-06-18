@@ -337,6 +337,23 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('Rebuild TASKS.md + the Agent OS dashboard.');
   });
 
+  test('reflexes carry an info tooltip explaining what each hook does', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    expect(html).toContain('class="tip"');
+    expect(html).toContain('wakes up with continuity');
+  });
+
+  test('environment always lists KEVIN_HOME and shows "not set" when empty, with an info tooltip', () => {
+    const html = renderDashboardHtml(
+      makeSnapshot({
+        settings: { ...makeSnapshot().settings, env: [{ key: 'KEVIN_HOME', value: '', scope: 'user' }] }
+      })
+    );
+    expect(html).toContain('KEVIN_HOME');
+    expect(html).toContain('<span class="dim">not set</span>');
+    expect(html).toContain('Kevin’s home directory');
+  });
+
   test('markdown files open through Obsidian URIs', () => {
     const html = renderDashboardHtml(makeSnapshot());
     expect(html).toContain(

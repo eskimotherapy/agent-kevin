@@ -112,6 +112,7 @@ Then below the banner, plain prose (no leading whitespace, no numbered lists —
 > ❓ Optional: paste a path or URL for your avatar (gets linked into knowledge/user/profile.md)
 > ❓ Optional: should knowledge/ and projects/ live somewhere outside the home directory?
 > ❓ Communication style and values
+> ❓ Signal topics to track in your briefings (Kevin proposes a starter set)
 > ❓ Optional: configure skill packs (SEO, Browser, third-party libraries)
 > ❓ Confirm + scaffold
 >
@@ -320,6 +321,30 @@ Optionally `AskUserQuestion`:
 > Examples: "no recommending alcohol", "always halal options", "I work in healthcare — never specific medical actions"
 
 Stage for the `## Hard Rules` section.
+
+---
+
+## Step 6b — Signal topics
+
+These drive the news in your briefings: the `morning-briefing` skill reads `knowledge/user/profile.md` → `## Signal Topics` and runs a web search per topic, so the brief surfaces articles about your interests, projects, industry, and the things you care about, not generic headlines. The whole point is to **recommend** a starter set, not interrogate the user, so do the work first.
+
+**Propose a derived starter list before asking.** Synthesise 5–8 topics from everything you already learned this session:
+- The **role** picked in Step 3 (e.g. coding focus → the languages/frameworks/tooling ecosystem; research focus → their fields).
+- Facts synthesised from the **URLs** in Step 5 — their industry, stack, employer/domain, side projects, the things they write about.
+- Their **locale** (from the Step 4 timezone) — a local tech/business/regulatory cluster where it's relevant.
+- Sensible generics for an AI-assistant user: the **AI / model ecosystem** they build on, and a broad tech cluster.
+
+Plain chat (NOT `AskUserQuestion` — this is an open-ended list, and the recommend-then-refine flow matches Steps 5/5b/5c). Emit the proposal as a bullet list and wait for the user's next turn:
+
+> **Signal topics for your briefings.** These are the subjects Kevin tracks with web search each morning so your briefing carries news that's actually relevant to you. Based on what you've told me, here's a starter set:
+>
+> - `<topic 1>`
+> - `<topic 2>`
+> - … (5–8, each a short phrase, optionally with a parenthetical of sub-terms)
+>
+> Reply with edits — drop any, add your own (industries, competitors, technologies, regions, causes) — or say `looks good` to take them as-is. Say `skip` for a minimal default.
+
+Parse the next message: if `looks good` → keep the proposal; if edits/additions → apply them; if `skip` → stage a minimal generic default (`AI engineering & the model ecosystem`, `general technology news`). Stage the final list for the `## Signal Topics` section of `knowledge/user/profile.md` in Step 7.
 
 ---
 
@@ -702,6 +727,20 @@ If Step 4b returned `skip`, omit the `## Where Things Live` section entirely —
 
 "Empty-with-frontmatter stub" = the file's body (post-frontmatter) is empty or whitespace-only. Treat any non-whitespace body content — bullets, paragraphs, headings — as operator content worth preserving.
 
+**`profile.md` always carries `## Signal Topics`.** The staged `profile.md` content — whether synthesised from Step 5 URLs or the empty stub — must end with a `## Signal Topics` section built from Step 6b, with the descriptive lead `morning-briefing` looks for:
+
+```markdown
+## Signal Topics
+
+News/research topics to track for briefings and signals. Used by morning-briefing and any task that needs topical web search.
+
+- <topic from Step 6b>
+- <topic from Step 6b>
+- …
+```
+
+This section is what powers the news clusters in every morning brief, so it must exist from day one even when Step 5 was skipped. **Bounded preservation exception:** if `profile.md` already has body content (case 2/3 above) but has **no** `## Signal Topics` heading, append this section to the end — additive only, never replacing existing content. If it already has one, leave it untouched (the operator or a prior compile owns it).
+
 **Why `preferences.md` ships with defaults**: OSS users may not have a `~/.claude/CLAUDE.md` of their own with universal communication / workflow / engineering opinions. The CLAUDE.md template already `@-imports` this file every session, so the defaults flow into context automatically. Users can edit them, delete sections that don't fit, or **promote anything they love to their own `~/.claude/CLAUDE.md`** so it applies across every Claude Code project on their machine. On re-run, edits are preserved by the body-content guard above.
 
 Shipped `preferences.md` defaults:
@@ -958,13 +997,13 @@ Blank line, then the **Next** heading (same style as Ready), then the relaunch p
 >
 > Didn't tick a pack at Step 8? Run `/agent-kevin:configure-skills` later — it adds permissions + plants the matching placeholder slots, then you fill via editor. Tools whose key is empty stay loaded but return "missing env var" if called — fill the value any time later and the next session picks it up.
 >
-> **Set `KEVIN_HOME` if you launch Claude from anywhere else.** Kevin's MCP server resolves all paths from `cwd` by default — fine when you launch from `<HOME_DIR>` itself, but it breaks silently if you launch from a subdir of the home, a sibling repo, or set up the user-level session-capture hook from the README. If you might launch from elsewhere, add to `~/.claude/settings.json` `env`:
+> **Always launch Kevin from its home — `<HOME_DIR>` — and set `KEVIN_HOME` as a safety net.** Kevin's MCP server resolves all paths from `cwd` by default, so the simplest habit is `cd <HOME_DIR> && claude` every time. But if you ever open Claude from somewhere else — a subdir of the home, a sibling repo, the user-level session-capture hook from the README, or just by accident — Kevin silently resolves to the wrong place. To make it robust no matter where you launch, add this to your **user-level** settings at `~/.claude/settings.json` under `env` (create the file if it doesn't exist):
 >
 > ```json
 > { "env": { "KEVIN_HOME": "<HOME_DIR>" } }
 > ```
 >
-> Skip if you'll always `cd <HOME_DIR> && claude`.
+> With that set, Kevin always finds its home regardless of your current directory. (You can verify it any time on the dashboard's System → Environment page — there's an info tooltip explaining what it does.)
 >
 > **One-time MCP-server install.** Kevin's MCP server runs from the plugin directory and needs its node_modules. From a separate terminal (or after `/exit`), run:
 >

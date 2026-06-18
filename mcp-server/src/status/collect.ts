@@ -845,6 +845,12 @@ const collectSettings = (): StatusSnapshot['settings'] => {
     scope: entry.scope
   }));
 
+  // Always surface KEVIN_HOME so its meaning is discoverable even when unset
+  // (it then falls back to the launch cwd). Empty value renders as "not set".
+  if (!redactedEnv.some((entry) => entry.key === 'KEVIN_HOME')) {
+    redactedEnv.unshift({ key: 'KEVIN_HOME', value: '', scope: 'user' });
+  }
+
   // Resolve the current plugin's enabled ref + its marketplace source.
   const ref = [...enabledPlugins].find((name) => name.startsWith(`${PLUGIN_NAME}@`));
   const marketplace = ref?.split('@')[1] ?? '';
