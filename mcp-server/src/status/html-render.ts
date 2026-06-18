@@ -649,7 +649,7 @@ const radarTab = (snap: StatusSnapshot): string => {
   // Build the header by hand: section()'s `right` is esc()'d, which would print
   // the open-link's raw HTML, so the link can't go through it.
   const meta = `<span class="right">${esc(`${latest.date} ${latest.time}`)} · ${mdLink(snap, latest.href, 'open')}</span>`;
-  return `<div class="section"><h2>Latest radar<i></i>${meta}</h2><div class="radar-md">${latest.html}</div></div>${more}`;
+  return `<div class="section" data-filterbox><h2>Latest radar<i></i>${meta}</h2>${filterInput('filter sessions…')}<div class="radar-md">${latest.html}</div></div>${more}`;
 };
 
 const pageBrain = (snap: StatusSnapshot): string => {

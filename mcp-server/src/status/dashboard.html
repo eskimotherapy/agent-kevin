@@ -507,10 +507,13 @@ kbd {
       const okCat = cat === 'all' || row.dataset.cat === cat;
       row.style.display = okText && okCat ? '' : 'none';
     });
-    box.querySelectorAll('h3.group').forEach((heading) => {
+    // Hide a section heading once every row beneath it is filtered out. Covers
+    // the date-group `h3.group` headings and the radar digest's `h2` section
+    // headers (Sessions → Recent); a run ends at the next heading of either kind.
+    box.querySelectorAll('h3.group, .radar-md h2').forEach((heading) => {
       let sibling = heading.nextElementSibling;
       let anyVisible = false;
-      while (sibling && !sibling.classList.contains('group')) {
+      while (sibling && !sibling.classList.contains('group') && !/^H2$/.test(sibling.tagName)) {
         if (sibling.matches('[data-row]') && sibling.style.display !== 'none') anyVisible = true;
         sibling = sibling.nextElementSibling;
       }

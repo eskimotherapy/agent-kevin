@@ -1405,9 +1405,22 @@ const collectRadarLatest = async (reports: ReportRef[]): Promise<RadarLatest | n
     /↳\s*<code>(claude --resume[^<]*)<\/code>/g,
     '<span class="resume">↳ <code>$1</code></span>'
   );
-  const html = await sanitizeHtml(rendered);
+  // Wrap each session run (its `<strong>N. …</strong>` title paragraph through
+  // its summary and resume badge) in a `data-row` div so the Recent tab's
+  // filterbox can show/hide whole sessions by matching title + summary text.
+  const html = wrapRadarSessions(await sanitizeHtml(rendered));
   return { date: ref.date, time: ref.time, title: ref.title, href: ref.href, html, footer, sessions: parseRadarSessions(raw) };
 }
+
+/** Wrap each rendered session run in `<div class="radar-session" data-row>` so
+ *  the Recent tab's session filter can match against the row's full text (title
+ *  + summary) and hide non-matches. A run spans from a numbered title paragraph
+ *  up to the next one, the next `<h2>` section header, or the end. */
+const wrapRadarSessions = (html: string): string =>
+  html.replace(
+    /(<p><strong>\d+\.[\s\S]*?)(?=<p><strong>\d+\.|<h2|$)/g,
+    '<div class="radar-session" data-row>$1</div>'
+  );
 
 /** Pull the digest's per-session blocks (`**N. Title** · *time ago*`, a summary,
  *  then a `↳ claude --resume …` line) into structured rows for the Today feed. */
