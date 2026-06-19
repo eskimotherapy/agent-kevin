@@ -32,6 +32,8 @@ import type {
   RadarLatest,
   RadarSession,
   ReportRef,
+  RuleEntry,
+  StaticImport,
   StatusSnapshot,
   TaskRef
 } from './collect';
@@ -98,6 +100,19 @@ const projectColor = (name: string): string => `hsl(${nameHue(name)}, 55%, 62%)`
 
 const projChip = (name: string): string =>
   `<span class="chip proj"><i style="background:${projectColor(name)}"></i>${esc(name)}</span>`;
+
+/** Layer badge for instruction/rule sources — user (~/.claude), project (HOME),
+ *  or local. Colored so the two scopes read apart at a glance. */
+const LEVEL_COLOR: Record<NonNullable<StaticImport['level']>, string> = {
+  user: 'var(--magenta)',
+  project: 'var(--cyan)',
+  local: 'var(--dim)'
+};
+const levelChip = (level: NonNullable<StaticImport['level']>): string =>
+  `<span class="chip lvl" title="${level === 'user' ? '~/.claude — applies to every project on this machine' : level === 'project' ? 'this agent home' : 'CLAUDE.local.md — this home, gitignored'}"><i style="background:${LEVEL_COLOR[level]}"></i>${esc(level)}</span>`;
+
+/** Glob chip for a path-scoped rule — the file pattern it auto-applies to. */
+const globChip = (glob: string): string => `<span class="chip glob"><code>${esc(glob)}</code></span>`;
 
 /** External web link — opens in a new tab. */
 const extLink = (url: string, text: string): string =>
@@ -1229,10 +1244,11 @@ const buildContextBody = (snap: StatusSnapshot): string => {
         ]
       ];
     }
+    const badge = item.level ? ` ${levelChip(item.level)}` : '';
     return [
       [
         item.present ? '<span class="good">✓</span>' : '<span class="bad" data-issue>✗</span>',
-        `${item.present ? mdLink(snap, item.label, item.label, 'plink') : esc(item.label)}${contextTipFor(item.label)}`,
+        `${item.present ? mdLink(snap, item.label, item.label, 'plink') : esc(item.label)}${badge}${contextTipFor(item.label)}`,
         `<span class="dim">${esc(humanBytes(item.bytes))}</span>`
       ]
     ];
@@ -1253,8 +1269,31 @@ const buildContextBody = (snap: StatusSnapshot): string => {
       `${context.staticImports.length} sources · ${humanBytes(context.staticBytes)}`,
       composition + table(['', 'source', 'size'], staticRows)
     ),
+    buildRulesSection(snap),
     section('Injected at SessionStart', humanBytes(context.dynamic.bytes), table(['', 'entry', 'size'], manifestRows))
   ].join('');
+};
+
+/** Path-scoped coding rules (`.claude/rules/*.md`) — Claude Code applies each
+ *  to files matching its `paths:` globs. Each row carries a level chip (user vs
+ *  project) and a chip per glob it's scoped to. */
+const buildRulesSection = (snap: StatusSnapshot): string => {
+  const { rules } = snap.context;
+  const ruleRow = (rule: RuleEntry): string[] => {
+    const link = rule.level === 'project' ? mdLink(snap, rule.path, rule.name, 'plink') : esc(rule.name);
+    const globs = rule.paths.length
+      ? `<div class="chips">${rule.paths.map(globChip).join('')}</div>`
+      : '<span class="dim">all files</span>';
+    return [
+      `<span class="nowrap">${link} ${levelChip(rule.level)}</span>`,
+      globs,
+      `<span class="dim">${esc(humanBytes(rule.bytes))}</span>`
+    ];
+  };
+  const body = rules.length
+    ? table(['rule', 'applies to', 'size'], rules.map(ruleRow))
+    : hint('No path-scoped rules yet — drop a `*.md` with a `paths:` frontmatter into `.claude/rules/`.');
+  return section('Path-scoped rules', rules.length ? `${rules.length} active` : '', body);
 };
 
 // Level field sits right after the ISO-UTC timestamp; mirrors collect.ts's

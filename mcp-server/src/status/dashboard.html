@@ -133,7 +133,9 @@ main { flex: 1; min-width: 0; padding: 30px 38px 70px; }
   padding: 2px 8px; font-size: 11px; color: var(--dim); white-space: nowrap; flex: none;
 }
 a.chip:hover { color: var(--cyan); text-decoration: none; }
-.chip.proj i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.chip.proj i, .chip.lvl i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.chip.glob { background: transparent; border: 1px solid var(--border); padding: 1px 6px; }
+.chip.glob code { color: var(--green); font-size: 10.5px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 /* Category filter chips (Reports page): same pill look as the row chips,
  *  clickable, active = accent fill. */

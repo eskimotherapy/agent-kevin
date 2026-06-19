@@ -235,6 +235,24 @@ export interface StaticImport {
   bytes: number;
   present: boolean;
   group: ContextGroup;
+  /** Which CLAUDE.md layer this instruction source comes from, when relevant —
+   *  user (`~/.claude`), project (HOME), or local (`CLAUDE.local.md`). */
+  level?: 'user' | 'project' | 'local';
+}
+
+/** A path-scoped coding rule from a `.claude/rules/*.md` file — Claude Code
+ *  auto-applies it to files matching the frontmatter `paths` globs. Collected
+ *  from both the user (`~/.claude/rules`) and project (`<HOME>/.claude/rules`)
+ *  layers for the Brain › Context view. */
+export interface RuleEntry {
+  /** Filename without the `.md` extension, e.g. `typescript`. */
+  name: string;
+  level: 'user' | 'project';
+  /** Glob patterns from the frontmatter `paths:` list; empty when unscoped. */
+  paths: string[];
+  bytes: number;
+  /** HOME-relative path for project rules (clickable); absolute for user. */
+  path: string;
 }
 
 export interface ProjectLoad {
@@ -358,6 +376,8 @@ export interface StatusSnapshot {
     staticImports: StaticImport[];
     staticBytes: number;
     dynamic: { date: string; entries: ManifestEntry[]; bytes: number };
+    /** Path-scoped coding rules (user + project), newest layer last. */
+    rules: RuleEntry[];
   };
   settings: {
     layers: SettingsLayer[];
@@ -788,13 +808,14 @@ const collectContext = async (): Promise<StatusSnapshot['context']> => {
 
   // Claude Code loads CLAUDE.md at the user (~/.claude) and project levels
   // *before* the project file's @-imports — surface them as instruction sources.
-  const claudeChain: Array<{ label: string; path: string }> = [
+  const claudeChain: Array<{ label: string; path: string; level: StaticImport['level'] }> = [
     {
       label: '~/.claude/CLAUDE.md',
-      path: resolve(homedir(), '.claude', 'CLAUDE.md')
+      path: resolve(homedir(), '.claude', 'CLAUDE.md'),
+      level: 'user'
     },
-    { label: 'CLAUDE.md', path: FILES.CLAUDE },
-    { label: 'CLAUDE.local.md', path: FILES.CLAUDE_LOCAL }
+    { label: 'CLAUDE.md', path: FILES.CLAUDE, level: 'project' },
+    { label: 'CLAUDE.local.md', path: FILES.CLAUDE_LOCAL, level: 'local' }
   ];
   const claudeImports: StaticImport[] = claudeChain
     .filter((entry) => existsSync(entry.path))
@@ -802,7 +823,8 @@ const collectContext = async (): Promise<StatusSnapshot['context']> => {
       label: entry.label,
       bytes: safeBytes(entry.path),
       present: true,
-      group: 'instructions' as const
+      group: 'instructions' as const,
+      level: entry.level
     }));
 
   const atImports: StaticImport[] = labels.map((label) => {
@@ -819,8 +841,53 @@ const collectContext = async (): Promise<StatusSnapshot['context']> => {
     bytes: 0
   }));
 
-  return { staticImports, staticBytes, dynamic };
+  return { staticImports, staticBytes, dynamic, rules: collectRules() };
 };
+
+/** Pull the `paths:` glob list out of a rule file's YAML frontmatter. Hand-rolled
+ *  rather than a YAML dep: the only shape we read is a `paths:` block of quoted
+ *  `- "glob"` items between the leading `---` fences. */
+const parseRulePaths = (raw: string): string[] => {
+  const match = raw.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return [];
+  const lines = match[1].split('\n');
+  const start = lines.findIndex((line) => /^paths:/.test(line));
+  if (start === -1) return [];
+  const paths: string[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const item = lines[i].match(/^\s+-\s+(.+?)\s*$/);
+    if (!item) break;
+    paths.push(item[1].replace(/^["']|["']$/g, ''));
+  }
+  return paths;
+};
+
+/** Read the path-scoped coding rules from a `.claude/rules` directory. */
+const collectRulesFrom = (dir: string, level: RuleEntry['level']): RuleEntry[] => {
+  try {
+    return readdirSync(dir)
+      .filter((name) => MARKDOWN_RE.test(name))
+      .sort((a, b) => a.localeCompare(b))
+      .map((name) => {
+        const path = resolve(dir, name);
+        return {
+          name: name.replace(MARKDOWN_RE, ''),
+          level,
+          paths: parseRulePaths(readFileSync(path, 'utf-8')),
+          bytes: safeBytes(path),
+          path: level === 'project' ? relative(FOLDERS.HOME, path) : path
+        };
+      });
+  } catch {
+    return [];
+  }
+};
+
+/** User rules first (they load before project rules), then project rules. */
+const collectRules = (): RuleEntry[] => [
+  ...collectRulesFrom(resolve(homedir(), '.claude', 'rules'), 'user'),
+  ...collectRulesFrom(resolve(FOLDERS.HOME, '.claude', 'rules'), 'project')
+];
 
 const collectSettings = (): StatusSnapshot['settings'] => {
   const blank = { present: false, allow: 0, deny: 0, envCount: 0 };

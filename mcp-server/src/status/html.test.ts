@@ -215,7 +215,10 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
       date: '2026-06-11',
       entries: [{ label: 'session tail', bytes: 500, status: 'loaded' }],
       bytes: 500
-    }
+    },
+    rules: [
+      { name: 'typescript', level: 'project', paths: ['**/*.ts', '**/*.tsx'], bytes: 459, path: '.claude/rules/typescript.md' }
+    ]
   },
   settings: {
     layers: [
@@ -308,6 +311,15 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('One approval is not blanket commit license.');
     expect(html).toContain('al-014 corporate bank account awaiting CIMB HQ.');
     expect(html).toContain(`obsidian://open?path=${encodeURIComponent('/tmp/home/knowledge/memory/2026-06-10.md')}`);
+  });
+
+  test('brain context tab renders path-scoped rules with glob and level chips', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    expect(html).toContain('Path-scoped rules');
+    expect(html).toContain('<code>**/*.tsx</code>');
+    // rule level chip + the clickable project-relative link
+    expect(html).toContain('chip lvl');
+    expect(html).toContain(`obsidian://open?path=${encodeURIComponent('/tmp/home/.claude/rules/typescript.md')}`);
   });
 
   test('profile page renders the operator with avatar, profile sections, and facets', () => {
