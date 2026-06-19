@@ -58,10 +58,18 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     ]
   },
   mcp: {
-    toolCount: 2,
+    toolCount: 3,
     toolDetails: [
       { name: 'mcp__kevin__dashboard', description: 'Rebuild TASKS.md + the Agent OS dashboard.' },
-      { name: 'mcp__kevin__task_scan', description: 'Resolve cross-task state.' }
+      { name: 'mcp__kevin__task_scan', description: 'Resolve cross-task state.' },
+      {
+        name: 'mcp__kevin__db_list',
+        description: 'List the Postgres connections.',
+        dbConnections: [
+          { name: 'app', host: 'localhost', port: '5432', database: 'app_dev' },
+          { name: 'analytics', host: 'db.example.com', port: '6543', database: 'analytics' }
+        ]
+      }
     ]
   },
   goals: {
@@ -335,6 +343,24 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('End-to-end refresh of every derived view.');
     expect(html).toContain('<div class="tname"><span class="good">dashboard</span></div>');
     expect(html).toContain('Rebuild TASKS.md + the Agent OS dashboard.');
+  });
+
+  test('db tool tile shows a connection-count chip and embeds names for the modal', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    expect(html).toContain('2 databases');
+    expect(html).toContain('class="chip db-chip"');
+    expect(html).toContain('data-dbconns=');
+    expect(html).toContain('&quot;name&quot;:&quot;app&quot;');
+    expect(html).toContain('&quot;name&quot;:&quot;analytics&quot;');
+  });
+
+  test('a db tool with zero connections shows a non-clickable 0-databases chip', () => {
+    const snap = makeSnapshot();
+    snap.mcp.toolDetails = [{ name: 'mcp__kevin__db_list', description: 'List the Postgres connections.', dbConnections: [] }];
+    const html = renderDashboardHtml(snap);
+    expect(html).toContain('0 databases');
+    expect(html).toContain('class="chip db-empty"');
+    expect(html).not.toContain('class="chip db-chip"');
   });
 
   test('reflexes carry an info tooltip explaining what each hook does', () => {

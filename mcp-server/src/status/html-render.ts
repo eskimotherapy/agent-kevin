@@ -1004,12 +1004,24 @@ const pageCapabilities = (snap: StatusSnapshot): string => {
     )
     .join('')}</div></div>`;
 
+  const dbChip = (tool: StatusSnapshot['mcp']['toolDetails'][number]): string => {
+    if (!tool.dbConnections) return '';
+    const count = tool.dbConnections.length;
+    const label = `${count} database${count === 1 ? '' : 's'}`;
+    if (count === 0) {
+      return ` <span class="chip db-empty" title="No databases configured">${label}</span>`;
+    }
+    return ` <button type="button" class="chip db-chip" data-dbconns="${esc(
+      JSON.stringify(tool.dbConnections)
+    )}" title="View configured databases">${label}</button>`;
+  };
+
   const toolTiles = `<div data-filterbox>${filterInput('filter tools…')}<div class="tiles">${mcp.toolDetails
     .map(
       (tool) =>
-        `<div class="tile" data-row><div class="tname"><span class="good">${esc(shortToolName(tool.name))}</span></div><div class="tdesc">${esc(
-          tool.description || '—'
-        )}</div></div>`
+        `<div class="tile" data-row><div class="tname"><span class="good">${esc(shortToolName(tool.name))}</span>${dbChip(
+          tool
+        )}</div><div class="tdesc">${esc(tool.description || '—')}</div></div>`
     )
     .join('')}</div></div>`;
 

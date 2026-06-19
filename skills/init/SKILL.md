@@ -654,6 +654,7 @@ Concrete approach: `Read` the existing file (treat as `{}` if absent), build the
 | Always-on core | `ping`, `capture`, `compile_*`, `memory_prune`, `task_*`, `links_rewrite`, `report_write`, `dashboard`, `setup_worktree` | `/init` (above) |
 | SEO-gated | `serpapi_search`, `open_page_rank`, `gsc_*`, `page_speed_*`, `google_auth` | configure-skills A.2a (SEO walk) |
 | Browser-gated | `perplexity_search`, `playwright_*`, `browser_flows` | configure-skills A.2b (Browser walk) |
+| Database-gated | `db_list`, `db_query`, `db_schema` | configure-skills A.2c (Database walk) |
 
 The allow list also carries three **skill** grants. Skills register regardless of permissions — the grant only suppresses the confirm prompt on model invocation (whether Kevin auto-fires the skill directly or one skill invokes another via the Skill tool). `Skill(agent-kevin:dashboard)` and `Skill(agent-kevin:where-am-i)` are **active**: both are model-invocable (no `disable-model-invocation`). `dashboard` refreshes-and-opens the Agent OS dashboard on a plain "refresh the dashboard"; `where-am-i` answers "where am I" directly and is also invoked by `dashboard` and `sync` to freshen the session radar (one source of truth for the radar). `Skill(agent-kevin:setup-worktree)` is **latent**: `setup-worktree` currently sets `disable-model-invocation`, so the grant does nothing until that flag is dropped; it's kept here so enabling model invocation needs no settings change.
 
@@ -932,11 +933,14 @@ The scaffold is done. Before showing the final confirmation, offer to wire up AP
 > Each pack already ships loaded with the plugin. Activating a pack grants its MCP tool permissions in `settings.json` (so calls don't re-prompt) and ensures empty env placeholders exist in `settings.local.json` for the keys you'll fill via your editor. Skip entirely if you want to come back later via `/agent-kevin:configure-skills`.
 >
 > - ☐ SEO pack (serpapi · open-page-rank · GSC · page-speed · WP · search-audit)
-> - ☐ Browser pack (perplexity search + playwright screenshot/pdf/record + browser-flows)
+> - ☑ Browser pack **(recommended)** (perplexity search + playwright screenshot/pdf/record + browser-flows)
+> - ☐ Database pack (connect Kevin to one or more Postgres databases — read-only `db_list`/`db_schema`/`db_query`)
 > - ☐ Third-party libraries (aaron-he-zhu SEO/GEO skills, coreyhaines31 marketing playbooks, others)
 
+Default-select **Browser** (recommended — Playwright's capture tools work immediately with no key, and Perplexity just waits on a key). Leave the others unticked; the user ticks any they want.
+
 Behavior on the response:
-- **Each ticked option**: run the matching configure-skills section in order — SEO (A.2a) → Browser (A.2b) → Third-party (F). The walks **never prompt for API key values in chat** — they only add MCP grants to `settings.json` and ensure empty placeholder slots exist in `settings.local.json`. The user fills values via their editor after relaunch.
+- **Each ticked option**: run the matching configure-skills section in order — SEO (A.2a) → Browser (A.2b) → Database (A.2c) → Third-party (F). The walks **never prompt for API key values or connection strings in chat** — they only add MCP grants to `settings.json` and ensure empty placeholder slots exist in `settings.local.json`. The user fills values via their editor after relaunch.
 - **Nothing ticked**: skip — note "skill packs not activated — run `/agent-kevin:configure-skills` after relaunch" for Step 9's status block. Don't touch settings files.
 
 For each picked option: **delegate to configure-skills** — open `${CLAUDE_PLUGIN_ROOT}/skills/configure-skills/SKILL.md` and follow the matching section. Honor every per-skill skip option inside that flow; don't force the user through items they don't want.
@@ -975,7 +979,7 @@ Blank line, then the status block as plain prose (one row per line, two-space gu
 
 For `<SKILL_PACK_ROW>`, render the row based on what Step 8 did. Note: "activated" here means permissions + placeholders, not key values (those come from the user editing `settings.local.json`).
 - If user skipped Step 8 entirely → `⏳ Skill packs   none activated — run /agent-kevin:configure-skills later`
-- If user activated SEO and/or Browser → `✅ Skill packs   <list, e.g. "SEO (perms granted; fill SERPAPI_KEY + OPENPAGERANK_API_KEY + GSC_SITE_URL in settings.local.json), Browser (perms granted; fill PERPLEXITY_API_KEY)">`
+- If user activated any pack → `✅ Skill packs   <list, e.g. "SEO (perms granted; fill SERPAPI_KEY + OPENPAGERANK_API_KEY + GSC_SITE_URL in settings.local.json), Browser (perms granted; fill PERPLEXITY_API_KEY), Database (perms granted; fill KEVIN_DB_<NAME> connection strings)">`
 
 Use ✅ for what landed and ⏳ for deferred (the hourglass implies "queued for later"). Don't list `<FACET_FILES_FILLED>/5` if Step 5 was skipped — just say "stubs only" instead.
 

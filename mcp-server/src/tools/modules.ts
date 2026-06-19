@@ -9,6 +9,7 @@ export const TOOL_MODULES = [
   'browser-flows',
   'capture',
   'compile',
+  'database',
   'google-page-speed',
   'google-search-console',
   'knowledge',

@@ -1,6 +1,6 @@
 ---
 name: configure-skills
-description: Configure Kevin's optional skill packs (SEO + Browser) or author a brand-new custom skill. The pack skills ship with the plugin and auto-load — this skill just wires up API keys, MCP server registrations, and tool permissions. Custom-authored skills land in `<HOME>/.claude/skills/<name>/`. Invoked at the end of /agent-kevin:init or any time after.
+description: Configure Kevin's optional skill packs (SEO, Browser, Database) or author a brand-new custom skill. The pack skills ship with the plugin and auto-load — this skill just wires up API keys, MCP server registrations, database connections, and tool permissions. Custom-authored skills land in `<HOME>/.claude/skills/<name>/`. Invoked at the end of /agent-kevin:init or any time after.
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, AskUserQuestion, Bash(mkdir *), Bash(cat *), Bash(ls *), Bash(rm *), Bash(rmdir *), Bash(bunx skills *), Bash(test *), Bash(head *)
 ---
@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, AskUserQuestion, Bash(mkdir *), Bash(cat *), B
 # Configure Skills
 
 This skill manages Kevin's optional capabilities. Use it to:
-1. **Configure a pack** (SEO or Browser) — writes API keys, registers MCP servers, grants tool permissions
+1. **Configure a pack** (SEO, Browser, or Database) — writes API keys, registers MCP servers, sets up database connections, grants tool permissions
 2. **Deconfigure a pack** — revokes keys/MCP/permissions (the pack's SKILL.md files stay; they ship with the plugin)
 3. **Author a brand-new custom skill** — writes a new SKILL.md to your `<HOME>/.claude/skills/`
 
@@ -44,7 +44,7 @@ If `$HOME_DIR/CLAUDE.md` doesn't exist, tell the user to run `/agent-kevin:init`
 `AskUserQuestion`:
 
 > **What would you like to do?**
-> - Configure a skill pack (SEO / Browser)
+> - Configure a skill pack (SEO / Browser / Database)
 > - Install third-party skill libraries (via skills.sh)
 > - Deconfigure a skill pack
 > - Cancel
@@ -62,10 +62,11 @@ Branch into the matching section below. For authoring brand-new custom skills (n
 > **Which pack(s) to configure?** Tick any combination.
 >
 > - ☐ SEO — 6 SEO skills + the `google-search-audit` composite (already loaded; this walks API key + permission setup)
-> - ☐ Browser — Perplexity research + Playwright tool permissions
+> - ☐ Browser **(recommended)** — Perplexity research + Playwright tool permissions
+> - ☐ Database — connect Kevin to one or more Postgres databases (read-only `db_list`/`db_schema`/`db_query` tools)
 > - ☐ Third-party libraries — clone separately-authored skill libraries (e.g. SEO/GEO from `aaron-he-zhu`, marketing playbooks from `coreyhaines31`) into `<HOME>/.claude/skills/`. Apache-2.0 licensed.
 
-If nothing is ticked, cancel and return to Step 1. Otherwise run the matching sub-section(s) below in order: SEO (A.2a) → Browser (A.2b) → Third-party (Section F).
+If nothing is ticked, cancel and return to Step 1. Otherwise run the matching sub-section(s) below in order: SEO (A.2a) → Browser (A.2b) → Database (A.2c) → Third-party (Section F).
 
 ### A.2a — SEO pack walk
 
@@ -208,6 +209,44 @@ sudo ${CLAUDE_PLUGIN_ROOT}/mcp-server/node_modules/.bin/playwright install-deps 
 
 After both pieces processed, print Browser pack summary.
 
+### A.2c — Database pack walk
+
+Connects Kevin to one or more Postgres databases. The `db_list`, `db_schema`, and `db_query` MCP tools (all read-only) are bundled with the plugin; this walk grants their permissions and sets up an **arbitrary number** of connections. Each connection is an env var `KEVIN_DB_<NAME>` whose value is a Postgres connection string. The connection string carries credentials, so it is **sensitive** — the walk only plants the empty placeholder key; the user fills the value in their editor, never in chat.
+
+> **Never prompt for connection-string values in chat.** A Postgres URL embeds a password (`postgres://user:pass@host/db`). The walk collects connection *names* only and surfaces *which* `KEVIN_DB_<NAME>` keys to fill in `<HOME>/.claude/settings.local.json` → `env`. The session-capture redactor masks DB URLs as defense-in-depth, but the safe move is to keep the value off the wire entirely.
+
+**(1) Grant the db tool permissions.** Add all three to `permissions.allow` via §E (read-only, so granting them together is fine):
+- `mcp__plugin_agent-kevin_kevin__db_list`
+- `mcp__plugin_agent-kevin_kevin__db_query`
+- `mcp__plugin_agent-kevin_kevin__db_schema`
+
+**(2) Collect connection names.** `AskUserQuestion` (or free-text):
+
+> **Which databases do you want to connect?**
+> Give each a short connection name (lowercase, e.g. `app`, `analytics`, `local`). You can list several comma-separated, and add more later by re-running this walk. The name is just a label — you'll paste the actual connection string into your editor afterward.
+
+For each name the user gives:
+- Normalize it the way the tool resolves connections: upper-case and replace every non-alphanumeric character with `_`, then prefix `KEVIN_DB_`. So `analytics` → `KEVIN_DB_ANALYTICS`, `read-replica` → `KEVIN_DB_READ_REPLICA`. (This matches `envKeyFor` in the plugin's `mcp-server/src/tools/database.ts`; the tool lowercases the suffix back to the connection name.)
+- Plant the placeholder via §D "ensure placeholder" — `env[KEVIN_DB_<NAME>] = ""` only if absent. **Never overwrite a value the user already filled** (re-running to add a connection is safe).
+
+If the user adds zero connections, still grant the tool permissions and note that `db_list` will report none until they add a `KEVIN_DB_<NAME>` env var.
+
+**(3) Summary:**
+
+```
+✅ Database pack activated.
+
+Tool permissions granted:  db_list, db_query, db_schema  (read-only)
+Connection placeholders:   KEVIN_DB_<NAME1>, KEVIN_DB_<NAME2>  (empty — fill these via editor)
+
+Each placeholder takes a Postgres connection string, e.g.:
+  "KEVIN_DB_APP": "postgres://user:pass@localhost:5432/app_dev"
+
+Fill the values in <HOME>/.claude/settings.local.json — never paste them into chat.
+Relaunch Claude Code, then run db_list to confirm Kevin sees them.
+Add more connections any time by re-running this walk.
+```
+
 ---
 
 ## Section F — Install third-party skill libraries
@@ -298,6 +337,7 @@ Print per library: install status + symlink path + upstream LICENSE first-line. 
 > **Which pack's configuration to remove?**
 > - SEO (clears API keys + permissions; skill files stay loaded but tool calls will error)
 > - Browser (removes the Perplexity API key; the MCP server stays plugin-bundled but goes inert without the key. Playwright tools stay since they're built-in)
+> - Database (revokes the db tool permissions; optionally removes the `KEVIN_DB_*` connection keys)
 
 ### C.2 Deconfigure actions
 
@@ -312,6 +352,11 @@ Print per library: install status + symlink path + upstream LICENSE first-line. 
 - `AskUserQuestion`: "Remove `PERPLEXITY_API_KEY` from `$SETTINGS_FILE`?" (Yes/No). If yes, delete via §D.
 - Do **not** touch `$MCP_FILE` — `perplexity_search` lives inside the `kevin` MCP server, not a project-registered server.
 - Remind user: playwright + chromium stay installed (part of plugin base deps); only the permission grants get removed.
+
+**Database deconfigure:**
+- Revoke the db tool grants from `permissions.allow` (§E remove helper): `db_list`, `db_query`, `db_schema`. Always-on core stays.
+- Read `$SETTINGS_FILE` and scan `env` for keys matching `KEVIN_DB_*`. List them back to the user (names only, never the values).
+- `AskUserQuestion`: "Also remove these `KEVIN_DB_*` connection keys from `$SETTINGS_FILE`?" (Yes / No). If any key holds a non-empty value, warn that removing it discards a connection string the user pasted. If yes, delete the matched keys from `env` via §D and write back. If no, leave them (they're harmless once the perms are revoked).
 
 Print summary of what was removed.
 

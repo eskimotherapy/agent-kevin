@@ -100,9 +100,18 @@ export interface SkillInfo {
   auto: boolean;
 }
 
+export interface DbConnectionInfo {
+  name: string;
+  host: string;
+  port: string;
+  database: string;
+}
+
 export interface ToolInfo {
   name: string;
   description: string;
+  /** Configured DB connections — set on the `db_*` tools; drives the dashboard chip + modal. */
+  dbConnections?: DbConnectionInfo[];
 }
 
 /** One captured working session from raw/sessions/index.json. */
@@ -370,7 +379,7 @@ export interface StatusSnapshot {
 
 const MARKDOWN_RE = /\.md$/;
 const SECRET_KEY_RE =
-  /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CRED|PRIVATE|OAUTH|SESSION|DB_URL|DB_URI|DATABASE|DSN|CONN|MCP_DB)/i;
+  /(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CRED|PRIVATE|OAUTH|SESSION|DB_URL|DB_URI|DATABASE|DSN|CONN|MCP_DB|KEVIN_DB)/i;
 /** A connection string with embedded credentials — `scheme://user:pass@host`.
  *  Caught by value so DB URLs are masked regardless of their env-var name. */
 const CRED_URL_RE = /:\/\/[^\s:@/]+:[^\s@/]+@/;
@@ -473,10 +482,21 @@ const collectMcpTools = async (): Promise<ToolInfo[]> => {
       try {
         const mod = (await import(`@/tools/${name}`)) as {
           tools?: Array<{ name?: string; description?: string }>;
+          discoverConnections?: () => Array<{ name: string; envKey: string }>;
+          safeConnectionInfo?: (url: string) => { host: string; port: string; database: string };
         };
+        const { discoverConnections, safeConnectionInfo } = mod;
+        const dbConnections =
+          name === 'database' && discoverConnections && safeConnectionInfo
+            ? discoverConnections().map((conn) => ({
+                name: conn.name,
+                ...safeConnectionInfo(process.env[conn.envKey] ?? '')
+              }))
+            : undefined;
         return (mod.tools ?? []).map((tool) => ({
           name: tool.name ?? '?',
-          description: firstSentence(tool.description ?? '')
+          description: firstSentence(tool.description ?? ''),
+          ...(dbConnections ? { dbConnections } : {})
         }));
       } catch {
         return [];
