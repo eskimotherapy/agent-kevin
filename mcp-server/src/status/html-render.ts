@@ -1555,13 +1555,26 @@ const PAGE_BUILDERS: Record<(typeof PAGES)[number]['id'], (snap: StatusSnapshot)
 
 export const renderDashboardHtml = (snap: StatusSnapshot): string => {
   const generated = `${snap.runtime.date} ${snap.runtime.time} ${snap.runtime.timezone}`;
+  const syncCmd = `/${snap.runtime.pluginName}:sync`;
+  const lastSyncAbs = snap.runtime.lastSync ? snap.runtime.lastSync.slice(0, 16).replace('T', ' ') : 'never';
+  // Two relative ages ([data-age-of], filled live by the client) plus the
+  // command. Absolute stamps sit in the title tooltips so the line stays short;
+  // the labels alone read sensibly even before JS fills the ages.
+  const footer = [
+    `<span title="${esc(generated)}">dashboard generated <span class="ftage" data-age-of="generated"></span></span>`,
+    `<span class="sep">·</span><span title="${esc(lastSyncAbs)}">knowledge last sync <span class="ftage" data-age-of="sync"></span></span>`,
+    `<span class="sep">·</span>refresh with ${esc(syncCmd)}`
+  ].join('');
   return fill(TEMPLATE, {
     TITLE: esc(`${snap.persona.name} · Agent OS`),
     EMOJI: esc(snap.persona.emoji || '🤖'),
+    GENERATED_AT: esc(snap.runtime.generatedAt),
+    LAST_SYNC: esc(snap.runtime.lastSync),
+    SYNC_CMD: esc(syncCmd),
     BANNER: sidebarBanner(snap),
     NAV: sidebarNav(snap),
     SIDEFOOT: sidebarFoot(snap),
     PAGES: PAGES.map((item) => PAGE_BUILDERS[item.id](snap)).join('\n'),
-    FOOTER: `generated ${esc(generated)}<span class="sep">·</span>snapshot, not live<span class="sep">·</span>regenerate with /${esc(snap.runtime.pluginName)}:sync`
+    FOOTER: footer
   });
 };

@@ -81,6 +81,7 @@ aside nav { flex: 1; overflow-y: auto; padding: 10px; }
 }
 .badge.ok { color: var(--green); border-color: rgba(63, 185, 80, 0.4); }
 .badge.warn { color: var(--amber); border-color: rgba(210, 153, 34, 0.5); }
+.badge.stale { color: var(--red); border-color: rgba(248, 81, 73, 0.5); background: rgba(248, 81, 73, 0.08); }
 .badge .pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 2.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
@@ -290,7 +291,7 @@ pre.logtail .logline.lvl-error { color: var(--red); }
 .flexbar { display: flex; height: 12px; border-radius: 6px; overflow: hidden;
   background: var(--panel-2); border: 1px solid var(--border); margin: 10px 0 8px; }
 .flexbar span { min-width: 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); margin-bottom: 8px; }
 .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; }
 .magrow { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
 .magrow .lbl { width: 120px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -303,6 +304,11 @@ th { text-align: left; color: var(--dim); font-weight: normal; font-size: 11px; 
      letter-spacing: 0.06em; padding: 4px 10px 6px 0; border-bottom: 1px solid var(--border); }
 td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
 tr:last-child td { border-bottom: none; }
+/* Context tables: pin icon + size columns to content so the middle column
+   absorbs all slack — keeps the two stacked tables column-aligned regardless
+   of how wide their middle content is. */
+[data-subpanel="context"] :is(th, td):first-child,
+[data-subpanel="context"] :is(th, td):last-child { width: 1%; white-space: nowrap; }
 
 /* ── persona / profile ─────────────────────────────────────────────── */
 .persona-head { display: flex; align-items: center; gap: 20px; margin: 22px 0 6px; }
@@ -325,9 +331,33 @@ ul.plain li { padding: 3px 0; }
 .chip.db-empty { color: var(--dim); font-style: italic; font-size: 10.5px; }
 #db-overlay .help-foot { font-size: 11px; }
 
+/* ── stale-snapshot indicator (sidebar) ────────────────────────────────
+   When the baked-in generation time is older than data-stale-hours, the
+   sidebar "sync overdue" badge is a native <details>: clicking the badge
+   (its <summary>) expands a compact panel right below it. Native toggle —
+   same mechanism as the task cards — so it responds at the click point and
+   works in restricted HTML viewers (Obsidian) where fixed modals / <a> nav
+   don't. The expansion is local, so the click is never inert. */
+.stale-wrap[hidden] { display: none; }
+.stale-wrap > summary { list-style: none; cursor: pointer; display: flex; width: 100%; overflow: hidden; }
+.stale-wrap > summary::-webkit-details-marker { display: none; }
+.stale-wrap .sb-badge-msg { overflow: hidden; text-overflow: ellipsis; }
+.stale-mini { margin-top: 9px; padding: 11px 12px; font-size: 11px;
+  background: rgba(248, 81, 73, 0.06); border: 1px solid rgba(248, 81, 73, 0.32);
+  border-radius: 9px; }
+.stale-mini .mini-row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.stale-mini .mini-lab { color: var(--dim); }
+.stale-mini .mini-val { color: var(--text); }
+.stale-mini .mini-val.bad { color: var(--red); }
+.stale-mini .mini-how { color: var(--dim); margin: 9px 0 5px; }
+.stale-mini .mini-cmd { display: block; background: var(--side); border: 1px solid var(--border);
+  border-radius: 7px; padding: 7px 9px; color: var(--accent); font-size: 11px; word-break: break-all; }
+
 footer { margin-top: 44px; padding: 9px 13px; color: var(--dim); font-size: 10.5px; opacity: 0.65;
   border: 1px dotted var(--border); border-radius: 6px; }
 footer .sep { margin: 0 7px; opacity: 0.5; }
+footer .ftage { color: var(--dim); }
+footer .ftage.stale { color: var(--red); opacity: 0.9; }
 
 /* ── help / keyboard shortcuts ─────────────────────────────────────── */
 .help-fab {
@@ -423,7 +453,7 @@ kbd {
 }
 </style>
 </head>
-<body>
+<body data-generated="{{GENERATED_AT}}" data-last-sync="{{LAST_SYNC}}" data-stale-hours="8" data-sync-cmd="{{SYNC_CMD}}">
 <button class="help-fab" id="help-open" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
 <div class="help-overlay" id="help-overlay" hidden>
   <div class="help-modal" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
@@ -473,6 +503,10 @@ kbd {
   </nav>
   <div class="side-foot">
 {{SIDEFOOT}}
+    <details class="stale-wrap" id="stale-badge" title="snapshot is stale — click for how to refresh" hidden>
+      <summary class="badge stale"><span class="pulse"></span><span class="sb-badge-msg">sync overdue</span></summary>
+      <div class="stale-mini" id="stale-mini"></div>
+    </details>
   </div>
 </aside>
 <main>
@@ -599,6 +633,101 @@ kbd {
       });
     });
   });
+
+  // Sync-staleness: the page is a static snapshot that bakes in its own
+  // generation time (data-generated) and the last heavy-refresh time
+  // (data-last-sync), both ISO-8601 with tz offset. Staleness keys off the
+  // LAST SYNC age, not the dashboard render — the dashboard re-renders on every
+  // task edit (so it's almost always ~0m old), whereas a sync (compile +
+  // flywheel + briefing) is the real freshness signal. Past the
+  // data-stale-hours threshold the sidebar "sync overdue" badge appears,
+  // expanding (native <details>) to show the ages and the sync command.
+  // Missing last-sync time → silent (earn the alarm; don't nag fresh installs).
+  const body = document.body;
+  const humanAge = (ms) => {
+    const mins = Math.max(0, Math.round(ms / 60000));
+    if (mins < 60) return mins + 'm';
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return mins % 60 ? hours + 'h ' + (mins % 60) + 'm' : hours + 'h';
+    const days = Math.floor(hours / 24);
+    return hours % 24 ? days + 'd ' + (hours % 24) + 'h' : days + 'd';
+  };
+  const ageMsOf = (raw) => {
+    const date = new Date(raw || '');
+    return isNaN(date.getTime()) ? null : Date.now() - date.getTime();
+  };
+  const staleHours = parseFloat(body.dataset.staleHours || '12');
+  const syncCmd = body.dataset.syncCmd || '/sync';
+
+  // Compact age for the narrow badge: whole hours/days with a "+", no minutes.
+  const compactAge = (ms) => {
+    const hours = Math.floor(ms / 3600000);
+    return hours < 24 ? hours + 'h+' : Math.floor(hours / 24) + 'd+';
+  };
+
+  const footGen = document.querySelector('footer .ftage[data-age-of="generated"]');
+  const footSync = document.querySelector('footer .ftage[data-age-of="sync"]');
+  const badge = document.getElementById('stale-badge'); // the <details> wrapper
+  const badgeMsg = badge && badge.querySelector('.sb-badge-msg');
+  const mini = document.getElementById('stale-mini');
+
+  // The mini panel is built once on first overdue, then updated in place so the
+  // <details> open state and scroll position are never disturbed on a tick.
+  let dashVal, syncVal;
+  const buildMini = () => {
+    const makeRow = (label) => {
+      const row = document.createElement('div'); row.className = 'mini-row';
+      const lab = document.createElement('span'); lab.className = 'mini-lab'; lab.textContent = label;
+      const val = document.createElement('span'); val.className = 'mini-val';
+      row.append(lab, val);
+      return [row, val];
+    };
+    const [dashRow, dv] = makeRow('dashboard');
+    const [syncRow, sv] = makeRow('last sync');
+    dashVal = dv; syncVal = sv;
+    const how = document.createElement('div'); how.className = 'mini-how';
+    how.textContent = 'Refresh recompiles knowledge, sweeps projects, rebuilds page:';
+    const cmd = document.createElement('code'); cmd.className = 'mini-cmd'; cmd.textContent = syncCmd;
+    mini.replaceChildren(dashRow, syncRow, how, cmd);
+  };
+
+  const setFoot = (el, ms, nullText) => {
+    if (!el) return;
+    el.textContent = ms == null ? nullText : humanAge(ms) + ' ago';
+    el.classList.toggle('stale', ms != null && ms / 3600000 >= staleHours);
+  };
+
+  // Recompute from the baked timestamps vs the live clock: refresh both footer
+  // ages, and show/update (or hide) the overdue badge as the last sync crosses
+  // the threshold. Runs on load and every 60s — cheap (a few text writes), and
+  // it surfaces the badge the moment the page tips overdue, even if it loaded
+  // fresh.
+  const update = () => {
+    const genMs = ageMsOf(body.dataset.generated);
+    const syncMs = ageMsOf(body.dataset.lastSync);
+    setFoot(footGen, genMs, 'unknown');
+    setFoot(footSync, syncMs, 'never');
+    if (!badge) return;
+
+    const stale = syncMs != null && syncMs / 3600000 >= staleHours;
+    if (stale) {
+      if (!dashVal) buildMini();
+      badgeMsg.textContent = 'sync overdue · ' + compactAge(syncMs);
+      dashVal.textContent = genMs == null ? 'unknown' : humanAge(genMs) + ' ago';
+      dashVal.classList.toggle('bad', genMs != null && genMs / 3600000 >= staleHours);
+      syncVal.textContent = humanAge(syncMs) + ' ago';
+      syncVal.classList.add('bad');
+      badge.hidden = false;
+    } else {
+      badge.hidden = true;
+    }
+  };
+
+  update();
+  setInterval(update, 60000);
+  // Backgrounded tabs throttle timers; refresh immediately on return so the
+  // ages and badge are never visibly behind.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
 
 })();
 </script>

@@ -29,7 +29,9 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     timezone: 'Asia/Kuala_Lumpur',
     date: 'Thu 11 Jun',
     isoDate: '2026-06-11',
-    time: '10:00'
+    time: '10:00',
+    generatedAt: '2026-06-11T10:00:00+08:00',
+    lastSync: '2026-06-11T09:30:00+08:00'
   },
   markdownUrl: 'obsidian://open?path={path}',
   persona: {

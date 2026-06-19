@@ -12,7 +12,7 @@
  */
 import { FILES, FOLDERS, MARKDOWN_URL, PLUGIN_NAME, TIMEZONE } from '@/config';
 import { contextManifest, type ManifestEntry } from '@/context';
-import { nowTime, todayDate } from '@/shared/date';
+import { nowISO, nowTime, offsetFor, todayDate } from '@/shared/date';
 import { sanitizeHtml } from '@/shared/sanitize-html';
 import type { TaskFile } from '@/shared/types';
 import { discoverProjects, scanAllTasks, scanArchivedTasks } from '@/tasks/scan';
@@ -282,6 +282,13 @@ export interface StatusSnapshot {
     /** Today as YYYY-MM-DD in TIMEZONE — anchor for due-date grouping. */
     isoDate: string;
     time: string;
+    /** Full ISO-8601 with tz offset for the render moment — the client uses it
+     *  to compute snapshot age and warn when a sync is overdue. */
+    generatedAt: string;
+    /** ISO-8601 of the newest briefings-category report (flywheel / morning /
+     *  evening) — the last heavy refresh, distinct from the dashboard re-render
+     *  that fires on every task mutation. '' when no briefing exists yet. */
+    lastSync: string;
   };
   persona: Persona;
   operator: OperatorInfo;
@@ -1297,7 +1304,10 @@ const collectRuntime = (): StatusSnapshot['runtime'] => {
       month: 'short'
     }),
     isoDate: now.toLocaleDateString('sv-SE', { timeZone: TIMEZONE }),
-    time: nowTime(now)
+    time: nowTime(now),
+    generatedAt: nowISO(now),
+    // Filled in collectStatus, which has the report list to derive it from.
+    lastSync: ''
   };
 };
 
@@ -1527,11 +1537,18 @@ const computeHealth = (snap: Omit<StatusSnapshot, 'health'>): Health => {
 
 const MAX_REPORTS = 60;
 
+/** ISO-8601 (with current tz offset) of the newest briefings-category report.
+ *  `reports` must be newest-first. '' when none exists. */
+const lastSyncIso = (reports: ReportRef[]): string => {
+  const latest = reports.find((ref) => ref.category === 'briefings' && ref.date && ref.time);
+  return latest ? `${latest.date}T${latest.time}:00${offsetFor()}` : '';
+};
+
 export const collectStatus = async (): Promise<StatusSnapshot> => {
   const allReports = collectReports();
   const knowledge = collectKnowledge();
   const base = {
-    runtime: collectRuntime(),
+    runtime: { ...collectRuntime(), lastSync: lastSyncIso(allReports) },
     persona: collectPersona(),
     operator: collectOperatorInfo(knowledge.facets),
     markdownUrl: collectMarkdownUrl(),
