@@ -409,10 +409,19 @@ relpath() {
 }
 KNOWLEDGE_REL="$(relpath "$KNOWLEDGE_ROOT")"
 PROJECTS_REL="$(relpath "$PROJECTS_ROOT")"
+# {{SHELL}} fills the Toolchain "Shell:" line per OS. On Windows, Claude Code's Bash tool runs under
+# Git Bash (POSIX), not PowerShell, so Kevin's commands assume bash everywhere.
+case "$KEVIN_OS" in
+  macos)   SHELL_NOTE='zsh, Homebrew at `/opt/homebrew`' ;;
+  windows) SHELL_NOTE='Git Bash (the POSIX shell Claude Code uses for its Bash tool on Windows)' ;;
+  wsl)     SHELL_NOTE='bash (WSL2)' ;;
+  *)       SHELL_NOTE='bash' ;;
+esac
 sed -i.bak \
   -e "s|{{KNOWLEDGE_REL}}|${KNOWLEDGE_REL}|g" \
   -e "s|{{PROJECTS_REL}}|${PROJECTS_REL}|g" \
   -e "s|{{PLATFORM}}|${PLATFORM_LABEL}|g" \
+  -e "s|{{SHELL}}|${SHELL_NOTE}|g" \
   "$CLAUDE_DEST"
 rm "$CLAUDE_DEST.bak"
 ```
