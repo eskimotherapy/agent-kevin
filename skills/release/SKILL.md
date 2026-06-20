@@ -92,14 +92,23 @@ data migration, an external re-auth) → `` `manual: none` `` with clear instruc
 If none of the above apply, the Upgrade block is the single line:
 `None — code-only, no bun install or HOME changes.`
 
-## Step 3 — Decide the new version
+## Step 3 — Decide the new version (ASK)
 
-Propose a bump from the change magnitude (SemVer), and confirm with the maintainer:
-- **patch** — fixes only, no new surface.
-- **minor** — new skills/tools/features, backward-compatible.
-- **major** — breaking changes to home layout, settings, or contracts.
+Compute the three candidate versions from the current `MAJOR.MINOR.PATCH` so the
+maintainer sees exactly what each bump produces, then **ask** with the `AskUserQuestion`
+tool — never pick the bump silently:
 
-Bump `.claude-plugin/plugin.json` `version` to the chosen value (edit that one field).
+- **patch** → `MAJOR.MINOR.(PATCH+1)` — fixes only, no new surface.
+- **minor** → `MAJOR.(MINOR+1).0` — new skills/tools/features, backward-compatible.
+- **major** → `(MAJOR+1).0.0` — breaking changes to home layout, settings, or contracts.
+
+Substitute the **real** current version into the option labels so each choice shows its
+concrete target — e.g. if `plugin.json` is `0.2.2`, the options read `patch → 0.2.3`,
+`minor → 0.3.0`, `major → 1.0.0`; if it's `0.4.7`, they read `0.4.8` / `0.5.0` / `1.0.0`.
+Recommend the bump that matches the change magnitude from Steps 1–2 (put it first, label
+it "(Recommended)"), but the maintainer's choice wins.
+
+Then bump `.claude-plugin/plugin.json` `version` to the chosen value (edit that one field).
 
 > Note: `mcp-server/package.json` carries its own, separate `version` that is not used
 > for plugin versioning and has drifted — leave it unless the maintainer asks to sync it.
@@ -131,29 +140,31 @@ Use today's date (`date +%Y-%m-%d`). Omit empty Added/Changed/Fixed groups. The 
 block must list **every** action from Step 2 (or the code-only sentinel). This is the
 exact text `/agent-kevin:upgrade` parses, so keep the backticked tags well-formed.
 
-## Step 5 — Stage, then STOP for approval
+## Step 5 — Stage, show the diff, then ASK how far to go
 
-Show the maintainer the full diff to be committed:
+The version + CHANGELOG edits are made, but **nothing in git has run yet**. Show the
+maintainer the full diff to be committed:
 
 ```bash
 git --no-pager diff -- .claude-plugin/plugin.json CHANGELOG.md
 git status --short
 ```
 
-Propose:
-- a commit (message e.g. `Release vX.Y.Z`),
-- an annotated tag `vX.Y.Z`,
-- and (if asked) a push to the marketplace remote.
+Then **ask** with the `AskUserQuestion` tool how far to take it — never commit, tag, or
+push without an explicit choice (per the standing "one approval ≠ blanket commit license"
+rule). Offer exactly these options:
 
-**Then stop and ask.** Do not run `git commit`, `git tag`, or `git push` until the
-maintainer explicitly approves. On approval:
+- **Commit only** — `git commit`, no tag, no push.
+- **Commit + tag** — `git commit` then annotated `git tag vX.Y.Z`.
+- **Commit + tag + push** — also `git push && git push --tags` to the marketplace remote.
+
+("Other" lets the maintainer abort or hand-tune.) Then run **only** the chosen subset:
 
 ```bash
 git add .claude-plugin/plugin.json CHANGELOG.md   # + any release-scoped files
 git commit -m "Release vX.Y.Z"
-git tag -a vX.Y.Z -m "vX.Y.Z"
-# only if explicitly asked:
-# git push && git push --tags
+git tag -a vX.Y.Z -m "vX.Y.Z"      # commit+tag and above only
+git push && git push --tags        # push option only
 ```
 
 ## Step 6 — Hand off
