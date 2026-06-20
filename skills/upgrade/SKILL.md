@@ -196,13 +196,18 @@ parent dir is ignored):
 
 ```bash
 GI="$HOME_DIR/.gitignore"
-# Act only if .kevin/* is ignored and no version.json rule exists yet. NOTE: keep
-# a literal '!' out of the command — some interactive shells (zsh history
-# expansion) mangle a leading '!' to '\!'; grep on a '!'-free substring, and emit
-# the negation's '!' via its octal code \041.
-if [ -f "$GI" ] && grep -qxF ".kevin/*" "$GI" && ! grep -qF "kevin/version.json" "$GI"; then
-  bang=$(printf '\041')
-  printf '%s.kevin/version.json\n' "$bang" >> "$GI"
+# Act only if .kevin/* is ignored and no version.json rule exists yet. NOTE: the
+# Claude Code Bash tool runs commands through an eval wrapper where '!' is unusable
+# — both a literal leading '!' (mangled to '\!') AND the '!' negation operator
+# ("command not found: !"). So: no '!' negation (use a nested if/else), grep on a
+# '!'-free substring, and emit the negation's '!' via its octal code \041.
+if [ -f "$GI" ] && grep -qxF ".kevin/*" "$GI"; then
+  if grep -qF "kevin/version.json" "$GI"; then
+    : # already tracked — no-op
+  else
+    bang=$(printf '\041')
+    printf '%s.kevin/version.json\n' "$bang" >> "$GI"
+  fi
 fi
 ```
 
