@@ -1164,7 +1164,7 @@ const pageProfile = (snap: StatusSnapshot): string => {
 const pagePersona = (snap: StatusSnapshot): string => {
   const { persona, runtime, settings } = snap;
   const avatar = persona.avatar ? `<img src="${esc(persona.avatar)}" alt="${esc(persona.name)}">` : '';
-  const head = `<div class="persona-head">${avatar}<div><div class="p-name">${esc(persona.name)} ${esc(persona.emoji)}</div><div class="p-kind">${esc(persona.kind)}</div><div class="p-vibe">${esc(persona.vibe)}</div></div></div>`;
+  const head = `<div class="persona-head">${avatar}<div><div class="p-kind">${esc(persona.kind)}</div><div class="p-vibe">${esc(persona.vibe)}</div></div></div>`;
   const bio = persona.bio ? `<p class="bio">${esc(persona.bio)}</p>` : '';
   // Interleave the two files in source order (identity first, then soul) so
   // the page alternates what-he-does with who-he-is instead of dumping one
