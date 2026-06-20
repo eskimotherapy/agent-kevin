@@ -456,14 +456,18 @@ else
     grep -vxF ".kevin/" "$HOME_DIR/.gitignore" > "$HOME_DIR/.gitignore.tmp" && mv "$HOME_DIR/.gitignore.tmp" "$HOME_DIR/.gitignore"
   fi
   APPEND=""
+  # Emit literal '!' via octal \041, and grep on '!'-free substrings: some
+  # interactive shells (zsh history expansion) mangle a leading '!' to '\!',
+  # which would silently break the negations (and re-ignore the compile cursor).
+  BANG=$(printf '\041')
   grep -qxF ".claude/settings.local.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.claude/settings.local.json"$'\n'
   if ! grep -qxF ".kevin/*" "$HOME_DIR/.gitignore"; then
     # Fresh: ignore runtime state, but track the two records that must survive a clone.
-    APPEND="${APPEND}.kevin/*"$'\n'"!.kevin/knowledge.json"$'\n'"!.kevin/version.json"$'\n'
+    APPEND="${APPEND}.kevin/*"$'\n'"${BANG}.kevin/knowledge.json"$'\n'"${BANG}.kevin/version.json"$'\n'
   else
     # Already ignores .kevin/* — re-add either negation if a legacy init missed it.
-    grep -qxF "!.kevin/knowledge.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}!.kevin/knowledge.json"$'\n'
-    grep -qxF "!.kevin/version.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}!.kevin/version.json"$'\n'
+    grep -qF "kevin/knowledge.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}${BANG}.kevin/knowledge.json"$'\n'
+    grep -qF "kevin/version.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}${BANG}.kevin/version.json"$'\n'
   fi
   grep -qxF ".obsidian/workspace.json" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.obsidian/workspace.json"$'\n'
   grep -qxF ".obsidian/cache/" "$HOME_DIR/.gitignore" || APPEND="${APPEND}.obsidian/cache/"$'\n'

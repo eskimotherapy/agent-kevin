@@ -190,13 +190,19 @@ prior `history` entries.)
 **Ensure the baseline is git-trackable (built-in invariant, every run).** Homes
 scaffolded before this feature ignore all of `.kevin/` except `knowledge.json`, so a
 freshly written `version.json` would be gitignored and lost on the next clone/restore
-— silently resetting upgrade tracking. Un-ignore it. Idempotent; the negation must
-follow the `.kevin/*` line (git can't re-include a file whose parent dir is ignored):
+— silently resetting upgrade tracking. Un-ignore it. Idempotent; appending at EOF
+keeps the negation after the `.kevin/*` line (git can't re-include a file whose
+parent dir is ignored):
 
 ```bash
 GI="$HOME_DIR/.gitignore"
-if [ -f "$GI" ] && grep -qxF ".kevin/*" "$GI"; then
-  grep -qxF "!.kevin/version.json" "$GI" || printf '!.kevin/version.json\n' >> "$GI"
+# Act only if .kevin/* is ignored and no version.json rule exists yet. NOTE: keep
+# a literal '!' out of the command — some interactive shells (zsh history
+# expansion) mangle a leading '!' to '\!'; grep on a '!'-free substring, and emit
+# the negation's '!' via its octal code \041.
+if [ -f "$GI" ] && grep -qxF ".kevin/*" "$GI" && ! grep -qF "kevin/version.json" "$GI"; then
+  bang=$(printf '\041')
+  printf '%s.kevin/version.json\n' "$bang" >> "$GI"
 fi
 ```
 
