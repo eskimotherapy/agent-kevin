@@ -34,6 +34,26 @@ and prompts per optional one. The new template files are the source of truth for
 
 <!-- Add new releases below this line, newest first. -->
 
+## [0.2.0] - 2026-06-20
+
+Versioned release + upgrade tracking. `/plugin update` refreshes plugin code but
+never touches a home's scaffolded files or runs `bun install`; this release adds the
+contract and tooling to close that gap.
+
+### Added
+- **`/agent-kevin:upgrade`** — applies pending HOME migrations after a `/plugin update`: runs `bun install` when a release needs it, auto-applies functionality-critical changes (permissions, new rule/concept files), and asks before touching anything you may have personalized (a SOUL/CLAUDE section). Handles being several versions behind in one pass, backs up to `.kevin/updates/` first, and ends with a sync.
+- **`/agent-kevin:release`** — producer tool that cuts a versioned release: detects what consumers need, bumps the version, writes the CHANGELOG entry + Upgrade block, and stages the commit + tag for approval.
+- **`CHANGELOG.md`** and the machine-actionable `### Upgrade` block format that `/agent-kevin:upgrade` consumes.
+- **Dashboard** — System → Changelog tab, plus an amber "upgrade available" sidebar badge (and a SessionStart banner nudge), driven by a local, zero-network compare of the home baseline against the installed version.
+- **`.kevin/version.json`** — the home's template baseline, git-tracked so it survives a clone/restore.
+
+### Changed
+- `/init` now records `.kevin/version.json` for fresh homes and grants the upgrade/release skills.
+- The `.gitignore` template now tracks `.kevin/version.json` (the same way it already tracks the compile cursor). For existing homes, `/agent-kevin:upgrade` applies this automatically.
+
+### Upgrade
+- `settings: mandatory` — add `Skill(agent-kevin:upgrade)` and `Skill(agent-kevin:release)` to `.claude/settings.json` `permissions.allow`.
+
 ## [0.1.25] - 2026-06-19
 
 Baseline entry — versioned release tracking begins here. Everything through
