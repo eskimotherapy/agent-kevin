@@ -177,7 +177,7 @@ function formatTurnList(turns: TranscriptTurn[]): string {
 function briefingStub(turns: TranscriptTurn[]): string {
   const firstUser = turns.find((turn) => turn.role === 'user');
   const text = (firstUser?.text ?? turns[0]?.text ?? '').replace(/\s+/g, ' ').trim();
-  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+  return text.length > 240 ? `${text.slice(0, 240)}…` : text;
 }
 
 // ── Capture mutex ────────────────────────────────────────────────────

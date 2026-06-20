@@ -592,7 +592,7 @@ const pageSessions = (snap: StatusSnapshot): string => {
     const cwd = tildifyHome(sessionRef.cwd.startsWith('~') ? sessionRef.cwd.replace('~', homedir()) : sessionRef.cwd);
     const where = cwd && cwd !== homeTilde ? `<div class="sess-cwd">${pathLink(sessionRef.cwd)}</div>` : '';
     return `<div class="row" data-row><span class="sess-turns nowrap" style="flex:none">${sessionRef.turns} turns</span><div class="grow"><div>${esc(
-      truncate(sessionRef.briefing, 240)
+      truncate(sessionRef.briefing, 280)
     )}</div>${where}</div>${resumedChip(sessionRef)}</div>`;
   };
   const byDay = new Map<string, typeof conversations>();
