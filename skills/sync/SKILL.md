@@ -1,6 +1,6 @@
 ---
 name: sync
-description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention, optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
+description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention (including a pending plugin upgrade), optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__report_write, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__web_search, Skill(agent-kevin:where-am-i), Read, Write, Edit, Glob, Grep, Bash
 ---
 
@@ -90,6 +90,31 @@ mcp__plugin_agent-kevin_kevin__task_scan
 
 Returns `{ unblocked, autoBlocked, autoClosed, overdue, stale, priorityBumps, pendingIds }`. **`task_scan` is read-only — it computes these buckets but persists nothing.** Frontmatter `status` stays the source of truth (both TASKS.md and the dashboard count blocked/active from frontmatter, never from this scan). Treat every bucket as a human-judgment queue: when a computed `unblocked` / `autoBlocked` / `autoClosed` / `manualClosed` is genuinely right, apply it explicitly with `task_update` / `task_close`; surface `overdue` / `stale` / `priorityBumps` in the output. Note `autoBlocked` over-reports while archived done-deps aren't loaded into the dependency map — verify the dep is actually unresolved before acting.
 
+**Also check for a pending plugin upgrade.** Drift between the installed plugin code and this home's migrated baseline is exactly a "needs attention" item: `/plugin update` refreshes code but never the home's scaffolded files (`CLAUDE.md`, `SOUL.md`, settings, rules), so a stale baseline means migrations are waiting. This is a read-only comparison only — **sync never runs `/upgrade`.** `/upgrade` backs up and mutates HOME files; that's a deliberate, operator-gated beat (and if it pulled new deps/MCP code it needs a Claude Code restart first). Sync's job is to raise the flag, same as the dashboard staleness warning.
+
+```bash
+HOME_DIR="${KEVIN_HOME:-$PWD}"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+INSTALLED=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PLUGIN_ROOT/.claude-plugin/plugin.json" | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+if [ -f "$HOME_DIR/.kevin/version.json" ]; then
+  BASELINE=$(grep -o '"templateVersion"[[:space:]]*:[[:space:]]*"[^"]*"' "$HOME_DIR/.kevin/version.json" | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+else
+  BASELINE=""
+fi
+if ls "$PLUGIN_ROOT/CHANGELOG.md" >/dev/null 2>&1; then
+  echo "installed=$INSTALLED baseline=${BASELINE:-<none>}"
+else
+  echo "no-changelog"   # plugin predates release tracking — no nudge
+fi
+```
+
+Interpret (mirrors the upgrade skill's guards, nudge-only — no semver math needed, a string mismatch is enough to flag):
+
+- **`no-changelog`** → plugin predates release tracking; say nothing.
+- **baseline `<none>`** (no `version.json`) → update tracking never enabled; surface `Run /upgrade to enable update tracking`.
+- **`baseline == installed`** → current; say nothing.
+- **`baseline != installed`** → surface `Plugin vINSTALLED installed · home migrated to vBASELINE — run /upgrade`.
+
 ### 7. Read the dust-settled state
 
 After all mutations above, both `projects/TASKS.md` and the lint report at `.kevin/lint.md` are current — `TASKS.md` auto-regenerates on every task mutation (flywheel's closes/updates already rewrote it), and `task_scan` is read-only, so post-scan state equals post-flywheel state. Read them once each — these are your sources for the summary, not the per-tool return values:
@@ -160,6 +185,10 @@ One block, tight. Skip empty sections — don't pad.
 
 🖥 Dashboard — <HOME>/dashboard.html refreshed
 
+⬆️ Upgrade (only when drift detected — omit entirely when up to date)
+  - <Plugin vINSTALLED installed · home migrated to vBASELINE — run /upgrade>
+  - <or: Run /upgrade to enable update tracking>
+
 ⚠️ Lint errors (if any)
   - <one line per error, with file path>
 
@@ -171,6 +200,12 @@ If everything is clean: a one-liner is the right output.
 
 ```
 ✅ Sync complete — wiki healthy, <N> active tasks, nothing flagged.
+```
+
+A pending upgrade is "something flagged" — if drift was detected, don't use the clean one-liner; keep the `⬆️ Upgrade` line so the nudge isn't swallowed:
+
+```
+✅ Sync complete — wiki healthy, <N> active tasks. ⬆️ Plugin vINSTALLED — run /upgrade.
 ```
 
 If a briefing arg was supplied, append the briefing block below the sync block (or below the one-liner). Two blocks, one message — sync on top, briefing underneath. Don't merge them; the shapes are distinct on purpose.
