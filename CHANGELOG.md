@@ -34,6 +34,14 @@ and prompts per optional one. The new template files are the source of truth for
 
 <!-- Add new releases below this line, newest first. -->
 
+## [0.2.7] - 2026-06-22
+
+### Fixed
+- SessionStart banner: the "upgrade available" row now matches the `Label:   value` shape of the Agent/Knowledge/Projects rows (`⬆️ Upgrade:   run ...`) and drops the em-dash, so it aligns with the sibling lines.
+
+### Upgrade
+- None — code-only, no bun install or HOME changes.
+
 ## [0.2.6] - 2026-06-21
 
 ### Changed
