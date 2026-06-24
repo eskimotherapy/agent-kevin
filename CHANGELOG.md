@@ -43,6 +43,23 @@ and prompts per optional one. The new template files are the source of truth for
 
 <!-- Add new releases below this line, newest first. -->
 
+## [0.3.2] - 2026-06-24
+
+### Added
+- New `database_fork` MCP tool: clones a Postgres database into a private copy via `CREATE DATABASE <fork> TEMPLATE <source>` (pure SQL, no `pg_dump`/`pg_restore`, cross-platform), so risky or destructive schema work runs against a scratch copy instead of a shared/live DB. Refuses remote hosts (local only), defaults to the first connection, names the fork after the current git branch, can repoint an env file at the fork, and tears down with `drop: true`. This is what `setup-worktree` now uses to give a worktree its own database on demand.
+- Dashboard now shows a presence-only secrets inventory of `.kevin/secrets/` (env key names + Google OAuth files): names and presence checks only, never values.
+
+### Changed
+- Database tools renamed for consistency: `db_list` → `database_list`, `db_schema` → `database_schema`, `db_query` → `database_query`. Consumer-visible (permission grants change; see Upgrade).
+- `setup-worktree` skill wires up `database_fork` to provision a worktree's database.
+- README database section rewritten for the v0.3.0 secrets layout: `KEVIN_DB_*` connection strings now live in `.kevin/secrets/.env`, not `settings.local.json`.
+
+### Fixed
+- Hardened the not-yet-released `0.3.0.ts` / `0.3.1.ts` secrets migrations: purge the old `settings.local.json` env block after relocation and strengthen the secrets deny path.
+
+### Upgrade
+- `settings: mandatory` — only if you use the Database pack. Replace the renamed tool grants in your project `.claude/settings.json`: remove `mcp__plugin_agent-kevin_kevin__db_list`, `mcp__plugin_agent-kevin_kevin__db_query`, `mcp__plugin_agent-kevin_kevin__db_schema`; add `mcp__plugin_agent-kevin_kevin__database_list`, `mcp__plugin_agent-kevin_kevin__database_query`, `mcp__plugin_agent-kevin_kevin__database_schema`, `mcp__plugin_agent-kevin_kevin__database_fork`.
+
 ## [0.3.1] - 2026-06-24
 
 ### Fixed
