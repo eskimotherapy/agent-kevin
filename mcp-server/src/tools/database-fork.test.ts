@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { configuredDatabases, deriveForkName, readEnvLine, removeEnvLine, upsertEnvLine } from '@/tools/database-fork';
+import {
+  configuredDatabases,
+  deriveForkName,
+  isLocalHost,
+  readEnvLine,
+  removeEnvLine,
+  upsertEnvLine
+} from '@/tools/database-fork';
 
 describe('deriveForkName', () => {
   test('slugifies the branch and prefixes the source DB', () => {
@@ -28,6 +35,20 @@ describe('upsertEnvLine', () => {
   test('replaces an existing line in place, leaving others untouched', () => {
     const out = upsertEnvLine('DATABASE_URL="old"\nFOO=bar\n', 'DATABASE_URL', 'new');
     expect(out).toBe('DATABASE_URL="new"\nFOO=bar\n');
+  });
+});
+
+describe('isLocalHost', () => {
+  test('accepts loopback hosts and an empty (unix-socket) host', () => {
+    for (const host of ['', 'localhost', '127.0.0.1', '::1', '[::1]']) {
+      expect(isLocalHost(host)).toBe(true);
+    }
+  });
+
+  test('refuses remote hosts, including ones that merely look local', () => {
+    for (const host of ['db.example.com', 'localhost.evil.com', '10.0.0.5', '0.0.0.0', 'rds.amazonaws.com']) {
+      expect(isLocalHost(host)).toBe(false);
+    }
   });
 });
 

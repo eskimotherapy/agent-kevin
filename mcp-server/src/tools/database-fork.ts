@@ -31,7 +31,7 @@ const DB_NAME_RE = /^[A-Za-z0-9_]{1,63}$/;
 
 /** Hosts a write/DDL tool may act on. Empty host = unix-socket connection (local). */
 const LOCAL_HOSTS = new Set(['', 'localhost', '127.0.0.1', '::1']);
-const isLocalHost = (host: string): boolean => LOCAL_HOSTS.has(host.replace(/^\[|\]$/g, ''));
+export const isLocalHost = (host: string): boolean => LOCAL_HOSTS.has(host.replace(/^\[|\]$/g, ''));
 
 /** Resolve a KEVIN_DB_<NAME> connection name (or the first configured one) to its string. */
 const resolveConnection = (name?: string): { name: string; url: string } => {
