@@ -19,6 +19,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 
+// google-auth owns its own location under the shared secrets dir — config
+// exposes only the secrets root, not the google subpath.
 const GOOGLE_DIR = join(FOLDERS.SECRETS, 'google');
 export const CLIENT_FILE = join(GOOGLE_DIR, 'google-oauth-client.json');
 const TOKENS_FILE = join(GOOGLE_DIR, 'google-tokens.json');
