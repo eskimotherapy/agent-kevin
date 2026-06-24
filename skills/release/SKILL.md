@@ -110,11 +110,28 @@ If a migration can be scripted, use `script`, not `manual`.
 If none of the above apply, the Upgrade block is the single line:
 `None — code-only, no bun install or HOME changes.`
 
-## Step 3 — Decide the new version (ASK)
+## Step 3 — Decide the new version
 
-Compute the three candidate versions from the current `MAJOR.MINOR.PATCH` so the
-maintainer sees exactly what each bump produces, then **ask** with the `AskUserQuestion`
-tool — never pick the bump silently:
+**First, is the version already determined?** If Step 2 found a version-pinned migration
+script (`skills/upgrade/scripts/<X.Y.Z>.ts`) added in the release range, the bump target
+*is* that filename's `<X.Y.Z>` — the script ships in, and is applied when upgrading to,
+exactly that release, and `/agent-kevin:upgrade` resolves it by `<target>.ts`. The version
+is **locked**; do **not** ask a three-way bump question. patch/major candidates aren't
+valid here — picking one would leave the script named for a version you didn't release, so
+upgrade would never run it. Instead:
+
+- State the determined version (e.g. "migration script `0.3.0.ts` is in the range → this
+  is the **v0.3.0** release") and proceed to Step 4 with it. A one-line confirm is fine; a
+  bump menu is not.
+- Sanity-check the magnitude against the rule below. A relocation/strip migration is
+  breaking → pre-1.0 that's a **minor** (`0.x` → `0.(x+1).0`), post-1.0 a **major**. If the
+  filename's implied bump and the actual change magnitude disagree, the **script is
+  misnamed** — fix it by renaming the script to the correct target (and say so), never by
+  choosing a version that contradicts the file.
+
+**Otherwise (no migration script in the range)**, compute the three candidates from the
+current `MAJOR.MINOR.PATCH` so the maintainer sees what each bump produces, then **ask**
+with the `AskUserQuestion` tool — never pick the bump silently:
 
 - **patch** → `MAJOR.MINOR.(PATCH+1)` — fixes only, no new surface.
 - **minor** → `MAJOR.(MINOR+1).0` — new skills/tools/features, backward-compatible.
@@ -126,7 +143,8 @@ concrete target — e.g. if `plugin.json` is `0.2.2`, the options read `patch �
 Recommend the bump that matches the change magnitude from Steps 1–2 (put it first, label
 it "(Recommended)"), but the maintainer's choice wins.
 
-Then bump `.claude-plugin/plugin.json` `version` to the chosen value (edit that one field).
+Then bump `.claude-plugin/plugin.json` `version` to the chosen (or determined) value (edit
+that one field).
 
 > Note: `mcp-server/package.json` carries its own, separate `version` that is not used
 > for plugin versioning and has drifted — leave it unless the maintainer asks to sync it.
