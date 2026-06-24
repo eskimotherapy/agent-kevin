@@ -11,6 +11,7 @@ export const TOOL_MODULES = [
   'capture',
   'compile',
   'database',
+  'database-fork',
   'google-page-speed',
   'google-search-console',
   'knowledge',

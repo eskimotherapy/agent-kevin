@@ -1,7 +1,7 @@
 ---
 name: setup-worktree
 description: Create a git worktree for parallel agent work and bootstrap it so it's ready to code — copies the gitignored local files (`.env*`, `.claude/settings.local.json`, `.cursor`, `.cmux`) from the main checkout, installs dependencies, and builds the packages. Use whenever the user asks to spin up a worktree, work on a branch in parallel, set up an isolated checkout for another agent, or "make a worktree for <feature>". First pins down WHICH repo the worktree is for (the user's words, the `$KEVIN_CODE_PATH` default when they assume you know, or by asking when neither resolves), then creates the worktree as a sibling of that repo, never nested inside it, and offers to add it to a sibling `*.code-workspace` if one exists.
-allowed-tools: mcp__plugin_agent-kevin_kevin__setup_worktree, Bash, Read, Edit
+allowed-tools: mcp__plugin_agent-kevin_kevin__setup_worktree, mcp__plugin_agent-kevin_kevin__database_fork, Bash, Read, Edit
 ---
 
 # setup-worktree — parallel checkout, ready to code
@@ -86,6 +86,52 @@ This is a plain JSON edit, not the MCP tool's job: do it with `Read` + `Edit`.
 Report the `worktreePath`, `branch`, and the `baseBranch` it branched from, surface any failed
 `steps`, then point the next agent (or a cmux workspace) at it. When the branch lands, clean up
 with `git worktree remove <worktreePath>`.
+
+## Step 4 — optional: fork the database for schema work
+
+Only relevant for repos that run a **shared local database** dev model (one Postgres DB every
+worktree points at, so a fresh worktree's copied `.env*` already targets it — no per-worktree DB
+step). The default is correct for most branches. But a worktree that will run **migrations or
+mutate the schema** must NOT touch the shared DB. For those, fork it: provision a private database
+seeded from a recent dump, then repoint the worktree's `.env.local` at the fork.
+
+The generic `database_fork` MCP tool does the provisioning (it forks any local database, not just a
+worktree's — see its own description). It clones the shared DB into a private `<source>_<branch>`
+with `CREATE DATABASE ... TEMPLATE` (pure SQL — no `pg_dump`/`pg_restore` binaries, no dump file,
+cross-platform, instant), then writes a `.env.local` override so the worktree points at the fork.
+For the worktree case, call it after Step 1 with:
+
+- `cwd` — the `worktreePath` from `setup_worktree`. Names the fork after the worktree's branch AND
+  is where the `.env.local` override is written.
+- `repointEnv: true` — write the `.env.local` DB override in `cwd` (the app layers it over `.env`).
+  If `.env.local` already sets the var (a value the dev put there), the tool leaves it untouched
+  and returns `envInstruction` telling you to point it at the fork by hand; pass `force: true` to
+  overwrite instead. Relay that instruction to the user verbatim when it comes back.
+- `connection` (optional) — the `KEVIN_DB_<NAME>` connection for the repo's local server; omit to
+  use the first configured connection (see below).
+- `terminateSource` (optional) — disconnect live sessions on the shared DB so the clone can proceed
+  (a running dev server holds connections; the tool errors with this hint if blocked).
+- `force` (optional) — recreate the fork if it already exists.
+
+The fork name defaults to `<source>_<branch-slug>` (from `cwd`'s git branch) and the override var to
+`DATABASE_URL`. The override is isolated — the base `.env` is never touched. To tear the fork down,
+call again with `drop: true` + the same `cwd`/`repointEnv` (drops the DB and removes the override) —
+do this before `git worktree remove` so the
+fork isn't orphaned. Remote connections are refused; `database_fork` only acts on a local server.
+
+**Resolving the source connection (the generic seam):** the tool needs a `KEVIN_DB_<NAME>`
+connection pointing at the repo's local Postgres server (e.g.
+`KEVIN_DB_VETRA=postgresql://postgres:@localhost:5432/vetra` in **`.kevin/secrets/.env`** — since
+v0.3.0 credential env vars live there, not in `.claude/settings.local.json`). It defaults to the
+first configured connection; when a repo has several, pick the right one in this order:
+
+1. A declaration in the **repo's root `CLAUDE.md`** — a line of the form
+   `Worktree DB connection: <kevin-db-name>` (e.g. `vetra`).
+2. If the repo doesn't declare one and **`$KEVIN_CODE_PATH` is set**, check that repo's `CLAUDE.md`
+   for the same line.
+3. Otherwise run `database_list` and, if exactly one connection matches the repo's local server, use it;
+   if it's ambiguous or none is configured, **ask the operator** (and have them add the
+   `KEVIN_DB_<NAME>` env var to `.kevin/secrets/.env`) — don't guess.
 
 ## Notes
 
