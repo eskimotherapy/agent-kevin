@@ -10,7 +10,7 @@
  * Paths in: always via FOLDERS/FILES (@/config). Paths out: callers render
  * through repoRelative()/tildify so absolute machine paths never leak.
  */
-import { FILES, FOLDERS, MARKDOWN_URL, PLUGIN_NAME, TIMEZONE } from '@/config';
+import { FILES, FOLDERS, listSecretEntries, MARKDOWN_URL, PLUGIN_NAME, type SecretEntry, TIMEZONE } from '@/config';
 import { contextManifest, type ManifestEntry } from '@/context';
 import { type ChangelogEntry, getUpgradeStatus, parseChangelog, type UpgradeState } from '@/version';
 import { nowISO, nowTime, offsetFor, todayDate } from '@/shared/date';
@@ -407,6 +407,7 @@ export interface StatusSnapshot {
     allow: number;
     deny: number;
     env: EnvEntry[];
+    secrets: SecretEntry[];
     enabledPlugins: string[];
     plugin: PluginRef | null;
   };
@@ -992,6 +993,7 @@ const collectSettings = (): StatusSnapshot['settings'] => {
     allow,
     deny,
     env: redactedEnv,
+    secrets: listSecretEntries(),
     enabledPlugins: [...enabledPlugins],
     plugin
   };

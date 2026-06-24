@@ -238,6 +238,10 @@ const makeSnapshot = (overrides: Partial<StatusSnapshot> = {}): StatusSnapshot =
     allow: 5,
     deny: 1,
     env: [{ key: 'KEVIN_API_KEY', value: '••••abcd', scope: 'workspace' }],
+    secrets: [
+      { name: 'PERPLEXITY_API_KEY', present: true },
+      { name: 'google/tokens', present: false }
+    ],
     enabledPlugins: ['agent-kevin@agentlayer'],
     plugin: { ref: 'agent-kevin@agentlayer', marketplace: 'agentlayer', sourceType: 'github', sourcePath: 'a/b' }
   },
@@ -336,6 +340,16 @@ describe('renderDashboardHtml', () => {
     // rule level chip + the clickable project-relative link
     expect(html).toContain('chip lvl');
     expect(html).toContain(`obsidian://open?path=${encodeURIComponent('/tmp/home/.claude/rules/typescript.md')}`);
+  });
+
+  test('system page lists secret keys by name with a presence status, never values', () => {
+    const html = renderDashboardHtml(makeSnapshot());
+    expect(html).toContain('Secrets');
+    expect(html).toContain('PERPLEXITY_API_KEY');
+    expect(html).toContain('● set');
+    expect(html).toContain('google/tokens');
+    expect(html).toContain('○ not set');
+    expect(html).toContain('1 set · values never shown');
   });
 
   test('profile page renders the operator with avatar, profile sections, and facets', () => {

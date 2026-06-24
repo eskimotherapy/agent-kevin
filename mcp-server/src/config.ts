@@ -42,6 +42,13 @@ function parseDotenv(raw: string): Record<string, string> {
 }
 
 /**
+ * Names of the keys loaded from `.kevin/secrets/.env`, in file order. Values are
+ * never exported (see parseDotenv) — only the names, so the dashboard can show a
+ * presence check without any module holding a raw secret. Empty pre-migration.
+ */
+const SECRET_KEY_NAMES: string[] = [];
+
+/**
  * Single secrets-ingestion point. Loads `<HOME>/.kevin/secrets/.env` into
  * `process.env` (secrets win over inherited values) so every entry point that
  * imports config — the MCP server, the CLI — gets the keys, while ad-hoc Bash
@@ -58,6 +65,7 @@ function loadSecretsEnv(secretsRoot: string): void {
   }
   for (const [key, value] of Object.entries(parseDotenv(raw))) {
     process.env[key] = value;
+    SECRET_KEY_NAMES.push(key);
   }
 }
 
@@ -84,6 +92,29 @@ export function scrubValues(text: string): string {
     out = out.replace(new RegExp(escaped, 'g'), `<REDACTED:${name}>`);
   }
   return out;
+}
+
+export interface SecretEntry {
+  name: string;
+  present: boolean;
+}
+
+/**
+ * Presence-only inventory of the secret store, for the dashboard. Env keys come
+ * from what was loaded at boot (names only — values never leave config); the
+ * Google OAuth files are checked on disk so a mid-session auth shows up without
+ * a restart. Google rows appear only once the auth flow has created the dir, so
+ * homes that never connect Google aren't shown empty rows.
+ */
+export function listSecretEntries(): SecretEntry[] {
+  const googleDir = resolve(SECRETS_ROOT, 'google');
+  const google = existsSync(googleDir)
+    ? [
+        { name: 'google/oauth-client', present: existsSync(resolve(googleDir, 'google-oauth-client.json')) },
+        { name: 'google/tokens', present: existsSync(resolve(googleDir, 'google-tokens.json')) }
+      ]
+    : [];
+  return [...SECRET_KEY_NAMES.map((name) => ({ name, present: true })), ...google];
 }
 
 export const TIMEZONE = process.env.KEVIN_TIMEZONE?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';

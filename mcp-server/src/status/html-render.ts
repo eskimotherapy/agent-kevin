@@ -1446,6 +1446,12 @@ const pageSystem = (snap: StatusSnapshot): string => {
         : esc(tildifyHome(entry.value)),
     `<span class="dim">${esc(entry.scope)}</span>`
   ]);
+  // Names only — values live in the deny-gated `.kevin/secrets/.env`, loaded by
+  // the MCP server at boot, and are never carried into the dashboard.
+  const secretRows = settings.secrets.map((entry) => [
+    `<span class="nowrap">${esc(entry.name)}</span>`,
+    entry.present ? '<span class="good">● set</span>' : '<span class="dim">○ not set</span>'
+  ]);
   // One row per settings layer, so the user/project/local scopes and what
   // each contributes are visible at a glance.
   const layerRows = settings.layers.map((layer) => [
@@ -1481,7 +1487,18 @@ const pageSystem = (snap: StatusSnapshot): string => {
         ]
       )
     ),
-    section('Environment', `${settings.env.length} vars · secrets redacted`, table(['key', 'value', 'scope'], envRows))
+    section(
+      'Environment',
+      `${settings.env.length} vars`,
+      `<div class="env-table">${table(['key', 'value', 'scope'], envRows)}</div>`
+    ),
+    section(
+      'Secrets',
+      `${settings.secrets.filter((entry) => entry.present).length} set · values never shown`,
+      settings.secrets.length
+        ? `<div class="secrets-table">${table(['key', 'status'], secretRows)}</div>`
+        : hint('No secrets configured. Add keys to .kevin/secrets/.env (loaded at boot, never displayed).')
+    )
   ].join('');
 
   const logsBody = [
