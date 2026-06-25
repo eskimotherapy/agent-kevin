@@ -43,6 +43,15 @@ and prompts per optional one. The new template files are the source of truth for
 
 <!-- Add new releases below this line, newest first. -->
 
+## [0.3.3] - 2026-06-25
+
+### Fixed
+- Sandbox secrets deny never bit. v0.3.0/v0.3.1 wrote the secrets deny under `sandbox.filesystem.read.denyOnly` — the harness's internal *resolved* shape, not a real settings input key — so Claude Code silently ignored it and files nested under `.kevin/secrets/` (Google OAuth tokens, `.kevin/secrets/.env`) stayed readable by sandboxed Bash, even though `ls` of the dir was blocked. The real key is `sandbox.filesystem.denyRead`; pointing it at the directory (no glob) denies it and everything under it at the OS level, which also sidesteps the gitignore `**`-won't-descend-into-`.kevin` dot-dir trap. `/init` now scaffolds `denyRead` plus a forward-compatible `sandbox.credentials.files` entry (honored on Claude Code v2.1.187+, ignored on older).
+
+### Upgrade
+- `script: required` — run `skills/upgrade/scripts/0.3.3.ts` via the `run_upgrade` MCP tool. It drops the dead `sandbox.filesystem.read.denyOnly` key, adds `sandbox.filesystem.denyRead: [".kevin/secrets"]`, and seeds `sandbox.credentials.files`. Idempotent.
+- `manual: none` — restart/reload Claude Code after the migration so Seatbelt loads the corrected policy. Verify with `wc -c < .kevin/secrets/<a-token-file>` — it should report "Operation not permitted" (not a byte count).
+
 ## [0.3.2] - 2026-06-24
 
 ### Added

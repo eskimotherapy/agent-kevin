@@ -597,9 +597,10 @@ Baseline `sandbox` block to write when global `sandbox.enabled !== true`:
   "autoAllowBashIfSandboxed": true,
   "allowUnsandboxedCommands": false,
   "filesystem": {
-    "read": {
-      "denyOnly": [".kevin/secrets/**", "**/.env", "**/.env.*"]
-    }
+    "denyRead": [".kevin/secrets"]
+  },
+  "credentials": {
+    "files": [{ "path": ".kevin/secrets", "mode": "deny" }]
   },
   "network": {
     "allowedDomains": [
@@ -616,18 +617,22 @@ Baseline `sandbox` block to write when global `sandbox.enabled !== true`:
 }
 ```
 
-The `filesystem.read.denyOnly` glob is the **second** layer protecting secrets: it
-blocks `cat`/`grep` of `.kevin/secrets/` (and any `.env`) via the **Bash** tool, which
-a `permissions.deny Read(...)` rule does **not** cover (that gates the Read tool only).
-Both layers are needed. (Sandbox is unavailable on native Windows — there the Read-tool
-deny is the only layer; flag that secrets aren't OS-protected on Windows.)
+The `filesystem.denyRead` directory entry is the **second** layer protecting secrets: it
+blocks `cat`/`grep` of `.kevin/secrets/` via the **Bash** tool, which a `permissions.deny
+Read(...)` rule does **not** cover (that gates the Read tool only). It points at the
+directory (no glob) so the OS denies it and everything under it — a `**/.kevin/secrets/**`
+glob would miss, because gitignore-style `**` won't descend into the `.kevin` dot-dir. The
+`credentials.files` entry applies the same file-read block (and is the home for env-var
+unsetting) on Claude Code v2.1.187+, and is ignored on older versions. Both the Read-tool
+and sandbox layers are needed. (Sandbox is unavailable on native Windows — there the
+Read-tool deny is the only layer; flag that secrets aren't OS-protected on Windows.)
 
 **Do not** touch global keys outside this baseline (`hooks`, `statusLine`, `theme`, `verbose`, other `env.*` entries, other `permissions.allow` entries, `enabledPlugins`) — those are operator-personal, not project-security. Hooks especially: plugin hooks come from `hooks/hooks.json` once registered; mirroring global hooks here would double-fire.
 
 **Critical — never overwrite an existing project `settings.json`.** If `$HOME_DIR/.claude/settings.json` already exists (re-init, or the home was a pre-existing project), `Read` it first and **deep-merge** the scaffold into it. The merged JSON is what gets written back. Rules:
 
 - **Scalars** (`model`, `effortLevel`, `cleanupPeriodDays`, `plansDirectory`, `$schema`, `env.*` string values): existing project value wins. Skip the key when merging — don't replace.
-- **Arrays** (`permissions.allow`, `permissions.deny`, `sandbox.network.allowedDomains`, any `allowWrite`/`denyOnly` arrays): union with the operator's existing entries + dedupe. Don't reorder or remove anything they already had.
+- **Arrays** (`permissions.allow`, `permissions.deny`, `sandbox.network.allowedDomains`, any `allowWrite`/`denyRead` arrays): union with the operator's existing entries + dedupe. `sandbox.credentials.files` is an object-array — union + dedupe by `path`. Don't reorder or remove anything they already had.
 - **Objects** (`permissions`, `sandbox`, `sandbox.network`, `enabledPlugins`, `env`, `hooks`): recurse with the same rules.
 - **`enabledPlugins`**: special case — set `"agent-kevin@agentlayer": true` even if the key already exists with a different value (the operator just ran init, so they want it enabled). Other plugin entries pass through untouched.
 - **`hooks`**: never touch — operator-owned end-to-end. The scaffold doesn't author any hooks block.

@@ -105,3 +105,50 @@ describe('0.3.0 migration script (end-to-end on a temp HOME)', () => {
     expect(readFileSync(resolve(home, '.kevin', 'secrets', '.env'), 'utf-8')).toContain('pplx-already-real-value-xyz');
   });
 });
+
+describe('0.3.3 migration script (fix sandbox secrets-deny key)', () => {
+  const script033 = resolve(PLUGIN_ROOT, 'skills', 'upgrade', 'scripts', '0.3.3.ts');
+  const run033 = (home: string) =>
+    spawnSync(process.execPath, [script033], { env: { ...process.env, KEVIN_HOME: home }, encoding: 'utf-8' });
+
+  const seedPost031 = (): string => {
+    const home = mkdtempSync(resolve(tmpdir(), 'kevin-mig33-'));
+    mkdirSync(resolve(home, '.claude'), { recursive: true });
+    writeFileSync(
+      resolve(home, '.claude', 'settings.json'),
+      JSON.stringify({
+        permissions: { deny: ['Read(//**/.kevin/secrets/**)'] },
+        sandbox: {
+          enabled: true,
+          filesystem: { read: { denyOnly: ['.kevin/secrets/**', '**/.env', '**/.env.*'] } },
+          network: { allowedDomains: ['github.com'] }
+        }
+      })
+    );
+    return home;
+  };
+
+  test('drops the dead read.denyOnly, adds denyRead + credentials.files, preserves the rest', () => {
+    const home = seedPost031();
+    const report = lastJson(run033(home).stdout);
+    expect(report.ok).toBe(true);
+    expect(report.deadKeyRemoved).toBe(true);
+    expect(report.denyReadAdded).toBe(true);
+    expect(report.credAdded).toBe(true);
+
+    const sandbox = JSON.parse(readFileSync(resolve(home, '.claude', 'settings.json'), 'utf-8')).sandbox;
+    expect(sandbox.filesystem.read).toBeUndefined();
+    expect(sandbox.filesystem.denyRead).toContain('.kevin/secrets');
+    expect(sandbox.credentials.files).toContainEqual({ path: '.kevin/secrets', mode: 'deny' });
+    expect(sandbox.enabled).toBe(true);
+    expect(sandbox.network.allowedDomains).toContain('github.com');
+  });
+
+  test('is idempotent — re-run touches nothing', () => {
+    const home = seedPost031();
+    expect(run033(home).status).toBe(0);
+    const report = lastJson(run033(home).stdout);
+    expect(report.ok).toBe(true);
+    expect(report.settingsTouched).toBe(false);
+  });
+});
