@@ -1,4 +1,5 @@
-import { FILES, FOLDERS, scrubValues } from '@/config';
+import { FILES, FOLDERS } from '@/config';
+import { scrubValues } from '@/shared/env';
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';

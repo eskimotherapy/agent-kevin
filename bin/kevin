@@ -378,11 +378,10 @@ async function run(): Promise<void> {
 
   if (group === 'database') {
     // The database tools live as MCP tool handlers; reuse them directly rather
-    // than duplicating the SQL. Importing config first triggers the one-time
-    // load of .kevin/secrets/.env into process.env, where the KEVIN_DB_*
-    // connection strings live. Like worktree/database_fork, these run outside
-    // the Bash sandbox — this CLI path is the real-terminal entry point.
-    await import(resolve(PLUGIN_ROOT, 'mcp-server/src/config'));
+    // than duplicating the SQL. They read connections via config's `env()`, which
+    // self-loads .kevin/secrets/.env on first read — no manual preload needed.
+    // Like worktree/database_fork, these run outside the Bash sandbox — this CLI
+    // path is the real-terminal entry point.
     const { tools: readTools } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/tools/database'));
     const { tools: forkTools } = await import(resolve(PLUGIN_ROOT, 'mcp-server/src/tools/database-fork'));
     const byName = new Map([...readTools, ...forkTools].map((tool) => [tool.name, tool] as const));

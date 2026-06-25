@@ -1,6 +1,7 @@
 /**
  * OpenPageRank MCP tool.
  */
+import { env } from '@/shared/env';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { untrusted } from '@/shared/untrusted';
 import { z } from 'zod';
@@ -16,7 +17,7 @@ export const tools: ToolDef[] = [
       domains: z.array(z.string()).min(1).max(100)
     },
     handler: async ({ domains }) => {
-      const key = process.env.OPENPAGERANK_API_KEY;
+      const key = env('OPENPAGERANK_API_KEY');
       if (!key) throw new Error('OPENPAGERANK_API_KEY env var not set');
       const params = new URLSearchParams();
       domains.forEach((d, i) => params.append(`domains[${i}]`, d));

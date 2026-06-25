@@ -14,6 +14,7 @@ import { FILES, FOLDERS, listSecretEntries, MARKDOWN_URL, PLUGIN_NAME, type Secr
 import { contextManifest, type ManifestEntry } from '@/context';
 import { type ChangelogEntry, getUpgradeStatus, parseChangelog, type UpgradeState } from '@/version';
 import { nowISO, nowTime, offsetFor, todayDate } from '@/shared/date';
+import { env } from '@/shared/env';
 import {
   composeMetaBox,
   composeMetaRows,
@@ -543,7 +544,7 @@ const collectMcpTools = async (): Promise<ToolInfo[]> => {
           name === 'database' && discoverConnections && safeConnectionInfo
             ? discoverConnections().map((conn) => ({
                 name: conn.name,
-                ...safeConnectionInfo(process.env[conn.envKey] ?? '')
+                ...safeConnectionInfo(env(conn.envKey) ?? '')
               }))
             : undefined;
         return (mod.tools ?? []).map((tool) => ({

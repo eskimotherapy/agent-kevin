@@ -1,11 +1,12 @@
+import { env, loadedSecretKeyNames } from '@/shared/env';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
-const PLUGIN_ROOT = process.env.KEVIN_PLUGIN_ROOT ?? resolve(import.meta.dir, '..', '..');
+const PLUGIN_ROOT = env('KEVIN_PLUGIN_ROOT') ?? resolve(import.meta.dir, '..', '..');
 
 const tildify = (p: string) => (p.startsWith('~/') ? resolve(homedir(), p.slice(2)) : p);
-const fromEnv = (key: string, fallback: string) => tildify(process.env[key]?.trim() || fallback);
+const fromEnv = (key: string, fallback: string) => tildify(env(key) || fallback);
 
 // Default to the current working directory — wherever the user launched
 // claude is Kevin's home. Override via `KEVIN_HOME` env var if launching
@@ -15,84 +16,9 @@ const KNOWLEDGE_ROOT = fromEnv('KEVIN_KNOWLEDGE', resolve(KEVIN_HOME, 'knowledge
 const DATA_ROOT = resolve(KEVIN_HOME, '.kevin');
 const SECRETS_ROOT = resolve(DATA_ROOT, 'secrets');
 
-/**
- * Minimal dotenv parser — PRIVATE to config. Kept unexported on purpose: handing
- * a raw env-file parser (or raw secret values) to other modules is a leak vector.
- * `KEY=value` lines; `#` comments and blanks ignored; surrounding quotes stripped.
- */
-function parseDotenv(raw: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq <= 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    if (!key) continue;
-    let value = trimmed.slice(eq + 1).trim();
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
-}
-
-/**
- * Names of the keys loaded from `.kevin/secrets/.env`, in file order. Values are
- * never exported (see parseDotenv) — only the names, so the dashboard can show a
- * presence check without any module holding a raw secret. Empty pre-migration.
- */
-const SECRET_KEY_NAMES: string[] = [];
-
-/**
- * Single secrets-ingestion point. Loads `<HOME>/.kevin/secrets/.env` into
- * `process.env` (secrets win over inherited values) so every entry point that
- * imports config — the MCP server, the CLI — gets the keys, while ad-hoc Bash
- * spawned by Claude never does. Absent file is the normal pre-migration state:
- * keys still ride in from the settings `env` block until the migration moves
- * them. Read-only and failure-tolerant — never throws at boot.
- */
-function loadSecretsEnv(secretsRoot: string): void {
-  let raw: string;
-  try {
-    raw = readFileSync(resolve(secretsRoot, '.env'), 'utf-8');
-  } catch {
-    return;
-  }
-  for (const [key, value] of Object.entries(parseDotenv(raw))) {
-    process.env[key] = value;
-    SECRET_KEY_NAMES.push(key);
-  }
-}
-
-loadSecretsEnv(SECRETS_ROOT);
-
-/**
- * Exact-match redaction. Replaces every value in `.kevin/secrets/.env` (≥12 chars, to
- * avoid scrubbing short common strings) with `<REDACTED:KEY_NAME>`. Read and matched
- * entirely inside config — the gatekeeper — so callers (the session-capture redactor)
- * scrub text without ever holding a raw secret value. `settings.local.json` is NOT
- * scrubbed: by design it holds only private, non-secret config.
- */
-export function scrubValues(text: string): string {
-  let secrets: Record<string, string>;
-  try {
-    secrets = parseDotenv(readFileSync(resolve(SECRETS_ROOT, '.env'), 'utf-8'));
-  } catch {
-    return text; // no/unreadable secrets/.env — prefix heuristics in the caller still run
-  }
-  let out = text;
-  for (const [name, value] of Object.entries(secrets)) {
-    if (value.length < 12) continue;
-    const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(escaped, 'g'), `<REDACTED:${name}>`);
-  }
-  return out;
-}
+// Env values + secret loading live in `@/shared/env` (a config-free module — see
+// its header for why it's kept apart from this frozen-FOLDERS singleton).
+// Importing it self-loads `.kevin/secrets/.env`; `env()` below reads through it.
 
 export interface SecretEntry {
   name: string;
@@ -114,16 +40,16 @@ export function listSecretEntries(): SecretEntry[] {
         { name: 'google/tokens', present: existsSync(resolve(googleDir, 'google-tokens.json')) }
       ]
     : [];
-  return [...SECRET_KEY_NAMES.map((name) => ({ name, present: true })), ...google];
+  return [...loadedSecretKeyNames().map((name) => ({ name, present: true })), ...google];
 }
 
-export const TIMEZONE = process.env.KEVIN_TIMEZONE?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+export const TIMEZONE = env('KEVIN_TIMEZONE') || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 /** URL template the dashboard uses to open markdown files in a native app.
  *  `{path}` is replaced with the URL-encoded absolute path. Set via the
  *  `MARKDOWN_URL` env var (e.g. in `.claude/settings.local.json` `env`);
  *  defaults to Obsidian. */
-export const MARKDOWN_URL = process.env.MARKDOWN_URL?.trim() || 'obsidian://open?path={path}&paneType=tab';
+export const MARKDOWN_URL = env('MARKDOWN_URL') || 'obsidian://open?path={path}&paneType=tab';
 
 /** Plugin name used to detect "is this plugin enabled in cwd?" in cross-agent
  * defer logic. Mirrors `.claude-plugin/plugin.json` `name`. Kept here so the
@@ -173,7 +99,7 @@ export const BROWSER = {
 /** Extra git repos surfaced in the SessionStart context alongside the knowledge
  * directory. Configure via `KEVIN_GIT_REPOS` env var (comma-separated paths,
  * `~` expanded). The basename of each path is used as its section label. */
-export const EXTRA_GIT_REPOS: readonly string[] = (process.env.KEVIN_GIT_REPOS ?? '')
+export const EXTRA_GIT_REPOS: readonly string[] = (env('KEVIN_GIT_REPOS') ?? '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean)

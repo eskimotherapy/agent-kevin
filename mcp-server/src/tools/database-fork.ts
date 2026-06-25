@@ -21,8 +21,9 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { dbConnections, env } from '@/shared/env';
 import { defineTool, type ToolDef } from '@/shared/types';
-import { discoverConnections, resolveConnectionString } from '@/tools/database';
+import { resolveConnectionString } from '@/tools/database';
 import pg from 'pg';
 import { z } from 'zod';
 
@@ -35,12 +36,12 @@ export const isLocalHost = (host: string): boolean => LOCAL_HOSTS.has(host.repla
 
 /** Resolve a KEVIN_DB_<NAME> connection name (or the first configured one) to its string. */
 const resolveConnection = (name?: string): { name: string; url: string } => {
-  const connections = discoverConnections();
+  const connections = dbConnections();
   if (!connections.length) {
     throw new Error('No database connections configured. Add a KEVIN_DB_<NAME> env var to .kevin/secrets/.env.');
   }
   const chosen = name ? connections.find((connection) => connection.name === name.toLowerCase()) : connections[0];
-  const url = chosen && process.env[chosen.envKey]?.trim();
+  const url = chosen && env(chosen.envKey);
   if (!chosen || !url) {
     throw new Error(
       `Unknown database connection "${name}". Available: ${connections.map((connection) => connection.name).join(', ')}.`
@@ -56,8 +57,8 @@ const resolveConnection = (name?: string): { name: string; url: string } => {
  */
 export const configuredDatabases = (): Set<string> => {
   const databases = new Set<string>();
-  for (const { envKey } of discoverConnections()) {
-    const url = process.env[envKey]?.trim();
+  for (const { envKey } of dbConnections()) {
+    const url = env(envKey);
     if (!url) {
       continue;
     }
@@ -67,7 +68,7 @@ export const configuredDatabases = (): Set<string> => {
         databases.add(database);
       }
     } catch {
-      // Unparseable connection string — discoverConnections still lists it, but
+      // Unparseable connection string — dbConnections still lists it, but
       // it pins no usable database name to protect.
     }
   }

@@ -19,28 +19,16 @@
  * `statement_timeout`, always rolled back — Postgres itself rejects any
  * write (error 25006), so reads are enforced by the server, not by parsing SQL.
  */
+import { dbConnections, dbEnvKeyFor, env } from '@/shared/env';
 import { defineTool, type ToolDef } from '@/shared/types';
 import pg from 'pg';
 import { z } from 'zod';
 
 const { Pool } = pg;
 
-const ENV_PREFIX = 'KEVIN_DB_';
-
-interface Connection {
-  name: string;
-  envKey: string;
-}
-
-/** Every `KEVIN_DB_<NAME>` env var, as `{ name, envKey }`. Name is lowercased. */
-export const discoverConnections = (): Connection[] =>
-  Object.keys(process.env)
-    .filter((key) => key.startsWith(ENV_PREFIX) && key.length > ENV_PREFIX.length && process.env[key]?.trim())
-    .map((envKey) => ({ name: envKey.slice(ENV_PREFIX.length).toLowerCase(), envKey }))
-    .sort((first, second) => first.name.localeCompare(second.name));
-
-/** Resolve a free-form connection name to its env key. */
-const envKeyFor = (name: string): string => ENV_PREFIX + name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+/** Connection discovery lives in config (the sole env reader); re-exported here
+ *  so the status collector's dynamic `import('database')` keeps finding it. */
+export const discoverConnections = dbConnections;
 
 /** Parse a connection URL into display metadata, dropping all credentials. */
 export const safeConnectionInfo = (url: string): { host: string; port: string; database: string } => {
@@ -89,11 +77,11 @@ const pools = new Map<string, pg.Pool>();
  * database). Throws (listing names) if the connection is unknown.
  */
 const getPool = (name: string, database?: string): pg.Pool => {
-  const envKey = envKeyFor(name);
+  const envKey = dbEnvKeyFor(name);
   const cacheKey = database === undefined ? envKey : `${envKey}::${database}`;
   const existing = pools.get(cacheKey);
   if (existing) return existing;
-  const url = process.env[envKey]?.trim();
+  const url = env(envKey);
   if (!url) {
     const available = discoverConnections().map((connection) => connection.name);
     const hint = available.length
@@ -147,7 +135,7 @@ export const tools: ToolDef[] = [
     handler: async () => {
       const connections = discoverConnections().map((connection) => ({
         name: connection.name,
-        ...safeConnectionInfo(process.env[connection.envKey] ?? '')
+        ...safeConnectionInfo(env(connection.envKey) ?? '')
       }));
       if (!connections.length) {
         return {

@@ -1,6 +1,7 @@
 /**
  * SerpAPI MCP tool — typed wrapper.
  */
+import { env } from '@/shared/env';
 import { log } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { untrusted } from '@/shared/untrusted';
@@ -118,7 +119,7 @@ export const tools: ToolDef[] = [
       googleDomain: z.string().optional()
     },
     handler: async ({ query, engine, gl, hl, num, device, location, googleDomain }) => {
-      const key = process.env.SERPAPI_KEY;
+      const key = env('SERPAPI_KEY');
       if (!key) throw new Error('SERPAPI_KEY env var not set');
       const params = new URLSearchParams({
         q: query,

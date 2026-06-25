@@ -1,6 +1,7 @@
 /**
  * Web search MCP tool (web_search) — typed wrapper over the Perplexity Search API.
  */
+import { env } from '@/shared/env';
 import { log } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { untrusted } from '@/shared/untrusted';
@@ -43,7 +44,7 @@ export const tools: ToolDef[] = [
       max_tokens_per_page: z.number().int().min(256).max(4096).optional().describe('Defaults to 1024')
     },
     handler: async ({ query, max_results, recency, domains, country, max_tokens_per_page }) => {
-      const key = process.env.PERPLEXITY_API_KEY;
+      const key = env('PERPLEXITY_API_KEY');
       if (!key) throw new Error('PERPLEXITY_API_KEY env var not set');
 
       const body: PerplexityRequestBody = {

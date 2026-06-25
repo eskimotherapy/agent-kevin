@@ -11,6 +11,7 @@
  */
 import { FOLDERS, KNOWLEDGE, PLUGIN_NAME, isInitialized } from '@/config';
 import { ENTRY_SEPARATOR, formatEntryHeader } from '@/knowledge/session-format';
+import { env } from '@/shared/env';
 import {
   diffTurns,
   fingerprintTurn,
@@ -106,7 +107,7 @@ const EXTRACTORS: Record<CaptureFormat, Extractor> = {
 
 /** True when called by Claude Code's plugin-hook invocation (sets CLAUDE_PLUGIN_ROOT). */
 function isPluginInvocation(): boolean {
-  return Boolean(process.env.CLAUDE_PLUGIN_ROOT);
+  return Boolean(env('CLAUDE_PLUGIN_ROOT'));
 }
 
 /** True when the project at `cwd` has *this* plugin (PLUGIN_NAME) enabled. */

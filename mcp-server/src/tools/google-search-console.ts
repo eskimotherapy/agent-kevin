@@ -4,6 +4,7 @@
  *
  * Requires GSC_SITE_URL env var (or pass `siteUrl` per-call).
  */
+import { env } from '@/shared/env';
 import { log } from '@/shared/log';
 import { defineTool, type ToolDef } from '@/shared/types';
 import { google } from 'googleapis';
@@ -13,7 +14,7 @@ import { authorizedClient, runAuthFlow } from './google-auth';
 const DimEnum = z.enum(['query', 'page', 'date', 'country', 'device', 'searchAppearance']);
 
 function siteUrl(override?: string): string {
-  const url = override ?? process.env.GSC_SITE_URL;
+  const url = override ?? env('GSC_SITE_URL');
   if (!url) throw new Error('GSC_SITE_URL env var not set, and no site URL passed.');
   return url;
 }
