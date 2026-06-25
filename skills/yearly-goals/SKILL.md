@@ -54,6 +54,16 @@ _<Year> theme: <one line> · planned <YYYY-MM-DD>_
 
 Past quarters stay listed with a ✅/❌/↪ verdict instead of a check, so the year reads as a record, not just a plan.
 
+## Stamp the cadence watermark
+
+So `sync` knows yearly goals were just set and stops nudging until the next quarter, record today's date. Do this **only after the quarters are actually written** — a skipped or aborted interview must leave the watermark untouched so it stays due:
+
+```bash
+bun -e 'const fs=require("node:fs"),p=require("node:path");const h=process.env.KEVIN_HOME??process.cwd();const f=p.join(h,".kevin/cadence.json");let o={};try{o=JSON.parse(fs.readFileSync(f,"utf8"))}catch{}o["yearly-goals"]="<YYYY-MM-DD>";fs.writeFileSync(f,JSON.stringify(o,null,2)+"\n")'
+```
+
+Substitute `<YYYY-MM-DD>` with today's date. Read-modify-write preserves the sibling skills' watermarks.
+
 ## Boundaries
 
 - Quarters get outcomes, not task lists — if it fits in a week, it belongs in weekly goals.

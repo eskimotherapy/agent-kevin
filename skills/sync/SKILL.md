@@ -1,6 +1,6 @@
 ---
 name: sync
-description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention (including a pending plugin upgrade), optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
+description: End-to-end refresh — compile pending raw inputs, lint+fix the wiki, run a flywheel pass across active projects, surface what needs attention (including a pending plugin upgrade and any planning/review skill that's come due, with the slash command to run it), optionally chain into a morning or evening briefing, snapshot recent Claude Code sessions (where-am-i radar), then refresh both dashboards (TASKS.md + dashboard.html) last so they capture the briefing's news and the run's final state. Run anytime you want to bring Kevin's state fully current and get one consolidated update. Heavier than quick-pulse, lighter than running each skill by hand.
 allowed-tools: mcp__plugin_agent-kevin_kevin__compile_status, mcp__plugin_agent-kevin_kevin__compile_next, mcp__plugin_agent-kevin_kevin__compile_write, mcp__plugin_agent-kevin_kevin__knowledge_lint, mcp__plugin_agent-kevin_kevin__memory_prune, mcp__plugin_agent-kevin_kevin__links_rewrite, mcp__plugin_agent-kevin_kevin__dashboard, mcp__plugin_agent-kevin_kevin__report_write, mcp__plugin_agent-kevin_kevin__task_query, mcp__plugin_agent-kevin_kevin__task_get, mcp__plugin_agent-kevin_kevin__task_scan, mcp__plugin_agent-kevin_kevin__task_update, mcp__plugin_agent-kevin_kevin__task_thread, mcp__plugin_agent-kevin_kevin__task_close, mcp__plugin_agent-kevin_kevin__task_create, mcp__plugin_agent-kevin_kevin__web_search, Skill(agent-kevin:where-am-i), Read, Write, Edit, Glob, Grep, Bash
 ---
 
@@ -115,6 +115,21 @@ Interpret (mirrors the upgrade skill's guards, nudge-only — no semver math nee
 - **`baseline == installed`** → current; say nothing.
 - **`baseline != installed`** → surface `Plugin vINSTALLED installed · home migrated to vBASELINE — run /upgrade`.
 
+**Also check planning + review cadence.** The calendar-cadence skills (weekly-goals, monthly-goals, yearly-goals, self-review) are interactive interviews marked `disable-model-invocation: true` — they only run when the operator types the slash command, never on their own and never via the Skill tool. Sync can't run them; its job is to **notice when one is due and surface the nudge**, same as it does for a pending plugin upgrade. This step is read-only detection:
+
+```bash
+bun "${CLAUDE_PLUGIN_ROOT}/skills/sync/scripts/cadence.ts"
+```
+
+Returns a JSON array of `{ skill, label, lastRun }` for each due item — empty `[]` means nothing's due (the common case; emit no Cadence block). Due rules baked into the script:
+
+- **weekly-goals** — a new ISO week has begun since `lastRun` (or never run).
+- **monthly-goals** — a new calendar month has begun since `lastRun`.
+- **yearly-goals** — a new calendar quarter has begun since `lastRun`.
+- **self-review** — `raw/user/feedback.md` has new entries since self-review's `lastRun` **and** that run is >14 days old. Count-driven, not pure calendar: stays silent when there's nothing accumulated to process.
+
+Watermarks live in `.kevin/cadence.json` (the goals trio, keyed `skill → last-run date`, stamped by each goals skill on completion) and `.kevin/review.json` (`lastRun`, owned by self-review). The check creates nothing; a missing watermark just reads as "due". Surface due items in the `📅 Cadence` output block — a nudge with the slash command, nothing more.
+
 ### 7. Read the dust-settled state
 
 After all mutations above, both `projects/TASKS.md` and the lint report at `.kevin/lint.md` are current — `TASKS.md` auto-regenerates on every task mutation (flywheel's closes/updates already rewrote it), and `task_scan` is read-only, so post-scan state equals post-flywheel state. Read them once each — these are your sources for the summary, not the per-tool return values:
@@ -185,6 +200,9 @@ One block, tight. Skip empty sections — don't pad.
 
 🖥 Dashboard — <HOME>/dashboard.html refreshed
 
+📅 Cadence (only when something is due — omit entirely when the cadence check returns [])
+  - <label> due (last set <lastRun | never>) → /<skill>
+
 ⬆️ Upgrade (only when drift detected — omit entirely when up to date)
   - <Plugin vINSTALLED installed · home migrated to vBASELINE — run /upgrade>
   - <or: Run /upgrade to enable update tracking>
@@ -202,7 +220,7 @@ If everything is clean: a one-liner is the right output.
 ✅ Sync complete — wiki healthy, <N> active tasks, nothing flagged.
 ```
 
-A pending upgrade is "something flagged" — if drift was detected, don't use the clean one-liner; keep the `⬆️ Upgrade` line so the nudge isn't swallowed:
+A pending upgrade or a due cadence item is "something flagged" — if either fired, don't use the clean one-liner; keep the `⬆️ Upgrade` and `📅 Cadence` lines so the nudge isn't swallowed:
 
 ```
 ✅ Sync complete — wiki healthy, <N> active tasks. ⬆️ Plugin vINSTALLED — run /upgrade.
